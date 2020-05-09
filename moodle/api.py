@@ -1,3 +1,5 @@
+import re
+
 from bs4 import BeautifulSoup
 from requests import Session
 
@@ -44,3 +46,24 @@ class MoodleSession:
         course_url = f"https://moodle.uni-heidelberg.de/course/view.php?id={course_id}"
         response = self._session.get(course_url)
         return BeautifulSoup(response.content, "html.parser")
+
+    def get_students(self, course_id, student_role):
+        url = f'https://moodle.uni-heidelberg.de/user/index.php?id={course_id}&perpage=5000'
+        response = self._session.get(url)
+        soup = BeautifulSoup(response.content, 'html.parser')
+        table = soup.find('table', attrs={'class':'flexible generaltable generalbox'}).find('tbody')
+        students = list()
+
+        for row in table.find_all('tr'):
+            columns = row.find_all('td')
+            anchor = columns[1].find('a')
+            if anchor is not None and columns[3].text == student_role:
+                name, profile_url = columns[1].text, anchor['href']
+                matcher = re.search(r'.*id=(\d+)&.*', profile_url)
+                moodle_id = matcher.group(1)
+                mail = columns[2].text
+                students.append((int(moodle_id), name, mail))
+
+        students = sorted(students, key=lambda t: t[2])
+        return students
+

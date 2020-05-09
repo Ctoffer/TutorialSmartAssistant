@@ -1,0 +1,2 @@
+class SmartAssistant:
+    pass
