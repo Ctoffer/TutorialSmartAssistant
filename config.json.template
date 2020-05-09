@@ -1,6 +1,6 @@
 {
   "storage": {
-    "root": "C:\\Users\\chris\\Documents\\Uni\\SoSe20\\IAD",
+    "root": "<absolute path to the folder which this program should use>",
     "submission_root": "Übungsblätter",
     "exercise_template": "Übungsblatt_",
     "exercise_folder": "01_Aufgabe",

@@ -1,0 +1,25 @@
+{
+  "moodle": {
+    "name": "<moodle name - your student id>",
+    "password": "<your moodle password in plain text>"
+  },
+  "muesli": {
+    "email": "<e-mail wich you use to log in to MÜSLI>",
+    "password": "<your MÜSLI password>"
+  },
+  "mail": {
+    "user": "<user of the mail account e.g. uni id in case of stud address>",
+    "password": "<e-mail password e.g. uni password in case of stud address>",
+    "address": "<your e-mail address>",
+    "mail_server": {
+      "incoming": {
+          "host": "<imap inbox host e.g. imap.urz.uni-heidelberg.de in case of stud address>",
+          "port": "<imap inbox port e.g. 993 in case of stud address"
+      },
+      "outgoing":{
+        "host": null,
+        "port": null
+      }
+    }
+  }
+}
