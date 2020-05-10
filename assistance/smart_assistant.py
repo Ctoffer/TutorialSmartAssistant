@@ -57,3 +57,14 @@ class SmartAssistant:
         command = input(">: ")
         with self._printer as printer:
             printer.inform(f"Entered: {command}")
+            if command == "stop":
+                self._stop()
+
+    def _stop(self):
+        self.ready = False
+        self._printer.inform("Close connections ...", end='')
+        self._moodle.logout()
+        self._muesli.logout()
+        self._printer.inform("[OK]")
+        self._printer.outdent()
+        self._print_header("Have a nice day \\(^_^)/")

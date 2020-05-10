@@ -1,0 +1,20 @@
+{
+  "help": {
+    "class": "HelpCommand",
+    "aliases": ["?"],
+    "description": "Lists all available commands, with a short description",
+    "parameter": {},
+    "requires": [
+      "Command Information"
+    ]
+  },
+  "exit": {
+    "class": "ExitCommand",
+    "aliases":["leave", "stop", "finish"],
+    "description": "Stops the assistant and closes all open network connections",
+    "parameter": {},
+    "requires": [
+      "Runtime Modifiers"
+    ]
+  }
+}
