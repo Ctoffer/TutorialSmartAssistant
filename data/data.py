@@ -1,3 +1,70 @@
+class Tutorial:
+    def __init__(self, lecture_name, lecture_id, tutorial_id, tutor, time, location):
+        self._lecture_name = lecture_name
+        self._lecture_id = int(lecture_id)
+        self._tutorial_id = int(tutorial_id)
+        self._tutor = tutor
+        self.tutor_mail = None
+        self._time = time
+        self._location = location
+
+    @property
+    def lecture_name(self):
+        return self._lecture_name
+
+    @property
+    def lecture_id(self):
+        return self._lecture_id
+
+    @property
+    def tutorial_id(self):
+        return self._tutorial_id
+
+    @property
+    def tutor(self):
+        return self._tutor
+
+    @property
+    def time(self):
+        return self._time
+
+    @property
+    def location(self):
+        return self._location
+
+    def __str__(self):
+        parts = self.tutor.split()
+        name = f"{parts[0][0]}. {parts[-1]}"
+        return f'Tutorial({self.lecture_id}, {self.tutorial_id}, {self.time} - {self.location}, {name})'
+
+    def __repr__(self):
+        return str(self)
+
+    def to_json(self):
+        return {
+            "lecture_name": self._lecture_name,
+            "lecture_id": self._lecture_id,
+            "tutorial_id": self._tutorial_id,
+            "tutor": self._tutor,
+            "tutor_mail": self.tutor_mail,
+            "time": self._time,
+            "location": self._location
+        }
+
+    @staticmethod
+    def from_json(dictionary):
+        tutorial = Tutorial(
+            dictionary['lecture_name'],
+            dictionary['lecture_id'],
+            dictionary['tutorial_id'],
+            dictionary['tutor'],
+            dictionary['time'],
+            dictionary['location']
+        )
+        tutorial.tutor_mail = dictionary['tutor_mail']
+        return tutorial
+
+
 class Student:
     def __init__(self, tutorial_id, muesli_student_id, muesli_name, muesli_mail, subject):
         self._tutorial_id = tutorial_id
@@ -69,10 +136,10 @@ class Student:
     @staticmethod
     def from_json(dictionary):
         student = Student(dictionary["tutorial_id"],
-                dictionary["muesli_student_id"],
-                dictionary["muesli_name"],
-                dictionary["muesli_mail"],
-                dictionary["subject"])
+                          dictionary["muesli_student_id"],
+                          dictionary["muesli_name"],
+                          dictionary["muesli_mail"],
+                          dictionary["subject"])
         student.set_moodle_identity(dictionary["moodle_student_id"],
                                     dictionary["moodle_name"],
                                     dictionary["moodle_mail"])

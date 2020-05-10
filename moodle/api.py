@@ -9,16 +9,37 @@ class MoodleSession:
         self._session = None
         self._account = account
         self._logout_url = None
+        self._test_url = 'https://moodle.uni-heidelberg.de/user/profile.php'
+
+    @property
+    def name(self):
+        return f"Moodle [{self.get_online_state()}]"
+
+    @property
+    def online(self):
+        return self.get_online_state() == 'online'
+
+    def get_online_state(self):
+        result = 'offline'
+        if self._session is not None:
+            response = self._session.get(self._test_url)
+            if response.status_code == 200:
+                result = 'online'
+            elif response.status_code == 303:
+                result = 'login required'
+            else:
+                result = 'offline'
+        return result
 
     def __enter__(self):
-        self._session = Session()
-        self._login()
+        self.login()
         return self
 
-    def _login(self):
+    def login(self):
         def contains_login_token(elem):
             return elem["type"] == "hidden" and elem["name"] == "logintoken"
 
+        self._session = Session()
         login_url = "https://moodle.uni-heidelberg.de/login/index.php"
         website = self._session.get(url=login_url)
         soup = BeautifulSoup(website.content, "html.parser")
@@ -31,16 +52,19 @@ class MoodleSession:
             "logintoken": login_token
         })
         soup = BeautifulSoup(r.content, "html.parser")
+        error_element = soup.find('p', attrs={'class': 'a', 'id': 'loginerrormessage'})
+        if error_element is not None:
+            raise ConnectionRefusedError('Wrong username or password.')
         self._logout_url = soup.find_all("a", attrs={"role": "menuitem", "data-title": "logout,moodle"})[0]["href"]
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self._logout()
-        self._session.close()
-        self._session = None
+        self.logout()
 
-    def _logout(self):
+    def logout(self):
         self._session.post(self._logout_url)
         self._logout_url = None
+        self._session.close()
+        self._session = None
 
     def get_course_page(self, course_id):
         course_url = f"https://moodle.uni-heidelberg.de/course/view.php?id={course_id}"
@@ -51,7 +75,7 @@ class MoodleSession:
         url = f'https://moodle.uni-heidelberg.de/user/index.php?id={course_id}&perpage=5000'
         response = self._session.get(url)
         soup = BeautifulSoup(response.content, 'html.parser')
-        table = soup.find('table', attrs={'class':'flexible generaltable generalbox'}).find('tbody')
+        table = soup.find('table', attrs={'class': 'flexible generaltable generalbox'}).find('tbody')
         students = list()
 
         for row in table.find_all('tr'):
@@ -66,4 +90,3 @@ class MoodleSession:
 
         students = sorted(students, key=lambda t: t[2])
         return students
-

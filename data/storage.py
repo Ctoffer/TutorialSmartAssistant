@@ -5,10 +5,10 @@ from json import load as j_load, dump as j_dump
 from os.path import join as p_join
 from time import sleep
 
-from data.data import Student
+from data.data import Student, Tutorial
 from data.student_matching import match_students, print_result_table
 from moodle.api import MoodleSession
-from muesli.api import Tutorial, MuesliSession
+from muesli.api import MuesliSession
 from util.config import load_config
 
 
@@ -27,7 +27,7 @@ class PhysicalDataStorage:
     def save_my_name(self, my_name):
         path = p_join(self._meta_path, f'01_my_name.json')
         with open(path, 'w') as fp:
-            j_dump(my_name, fp)
+            j_dump(my_name, fp, indent=4)
 
     def load_my_name(self):
         result = None, 'Missing'
@@ -42,7 +42,7 @@ class PhysicalDataStorage:
     def save_tutorial_ids(self, ids, mode='my'):
         path = p_join(self._meta_path, f'02_{mode}_ids.json')
         with open(path, 'w') as fp:
-            j_dump(ids, fp)
+            j_dump(ids, fp, indent=4)
 
     def load_tutorial_ids(self, mode='my'):
         path = p_join(self._meta_path, f'02_{mode}_ids.json')
@@ -56,14 +56,14 @@ class PhysicalDataStorage:
     def save_tutorial_data(self, tutorials):
         path = p_join(self._meta_path, f'03_tutorials.json')
         with open(path, 'w') as fp:
-            j_dump({k: v.to_json() for k, v in tutorials.items()}, fp)
+            j_dump({k: v.to_json() for k, v in tutorials.items()}, fp, indent=4)
 
     def load_tutorial_data(self):
         path = p_join(self._meta_path, f'03_tutorials.json')
         result = dict(), "Missing"
         if os.path.exists(path):
             with open(path, 'r') as fp:
-                result = {k: Tutorial.from_json(v) for k, v in j_load(fp).items()}, "Loaded"
+                result = {int(k): Tutorial.from_json(v) for k, v in j_load(fp).items()}, "Loaded"
 
         return result
 
@@ -72,7 +72,7 @@ class PhysicalDataStorage:
         path = p_join(directory, f'students_{tutorial_id}.json')
         with open(path, 'w') as fp:
             out_data = [student.to_json_dict() for student in students[tutorial_id]]
-            j_dump(out_data, fp)
+            j_dump(out_data, fp, indent=4)
 
     def load_students(self, tutorial_id):
         directory = ensure_folder_exists(p_join(self._meta_path, "students"))
@@ -92,6 +92,7 @@ class InteractiveDataStorage:
         if InteractiveDataStorage.__instance is None:
             InteractiveDataStorage.__instance = object.__new__(cls)
         InteractiveDataStorage.__instance.my_name = None
+        InteractiveDataStorage.__instance.my_name_alias = None
         InteractiveDataStorage.__instance.my_tutorial_ids = list()
         InteractiveDataStorage.__instance.other_tutorial_ids = list()
         InteractiveDataStorage.__instance.tutorials = dict()
@@ -115,6 +116,7 @@ class InteractiveDataStorage:
     def _init_my_name(self, muesli: MuesliSession):
         print(f"Load my name ...", end='')
         my_name, state = self.__instance.physical_storage.load_my_name()
+        self.my_name = my_name
         print(f'[{state}]')
 
         if state == "Missing":
@@ -134,8 +136,10 @@ class InteractiveDataStorage:
                 except ValueError:
                     print("Please enter one of the numbers listed above.")
 
-            self.__instance.my_name = names[index]
-            self.__instance.physical_storage.save_my_name(self.__instance.my_name)
+            self.my_name = names[index]
+            self.physical_storage.save_my_name(self.my_name)
+
+        self.my_name_alias = self.my_name.split()[0]
 
     def _init_tutorial_ids(self, muesli: MuesliSession, mode='my'):
         print(f"Load {mode} tutorial ids...", end='')
@@ -153,8 +157,8 @@ class InteractiveDataStorage:
 
     def _init_tutorials(self, muesli: MuesliSession):
         print(f"Load tutorial data...", end='')
-        tutorials, state = self.__instance.physical_storage.load_tutorial_data()
-        self.__instance.tutorials = tutorials
+        tutorials, state = self.physical_storage.load_tutorial_data()
+        self.tutorials = tutorials
         print(f'[{state}]')
 
         if state == "Missing":
@@ -277,23 +281,23 @@ class InteractiveDataStorage:
 
     def update_tutorials(self, muesli: MuesliSession, mode="my"):
         if mode == "my":
-            tutorials = muesli.get_my_tutorials(self.muesli_data.lecture_id, self.__instance.my_name)
-            ids = self.__instance.my_tutorial_ids
+            tutorials = muesli.get_my_tutorials(self.muesli_data.lecture_id, self.my_name)
+            ids = self.my_tutorial_ids
         elif mode == "other":
             tutorials = muesli.get_all_tutorials_of_lecture(self.muesli_data.lecture_id,
-                                                            except_ids=self.__instance.my_tutorial_ids)
-            ids = self.__instance.other_tutorial_ids
+                                                            except_ids=self.my_tutorial_ids)
+            ids = self.other_tutorial_ids
         else:
             raise ValueError(f"Unknown mode '{mode}'!")
 
         ids.clear()
         for tutorial in tutorials:
             tid = tutorial.tutorial_id
-            self.__instance.tutorials[tid] = tutorial
+            self.tutorials[tid] = tutorial
             ids.append(tid)
 
-        self.__instance.physical_storage.save_tutorial_ids(ids, mode)
-        self.__instance.physical_storage.save_tutorial_data(self.__instance.tutorials)
+        self.physical_storage.save_tutorial_ids(ids, mode)
+        self.physical_storage.save_tutorial_data(self.tutorials)
 
     def update_students_of_tutorial(self, muesli: MuesliSession, tutorial_id: int):
         students = muesli.get_all_students_of_tutorial(tutorial_id)
@@ -302,7 +306,7 @@ class InteractiveDataStorage:
 
     @property
     def my_tutorials(self):
-        return [self.__instance.tutorials[tid] for tid in self.my_tutorial_ids]
+        return [self.tutorials[tid] for tid in self.my_tutorial_ids]
 
     @property
     def other_tutorials(self):

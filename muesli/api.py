@@ -1,73 +1,7 @@
 from bs4 import BeautifulSoup
 from requests import Session
 
-from data.data import Student
-
-
-class Tutorial:
-    def __init__(self, lecture_name, lecture_id, tutorial_id, tutor, time, location):
-        self._lecture_name = lecture_name
-        self._lecture_id = int(lecture_id)
-        self._tutorial_id = int(tutorial_id)
-        self._tutor = tutor
-        self.tutor_mail = None
-        self._time = time
-        self._location = location
-
-    @property
-    def lecture_name(self):
-        return self._lecture_name
-
-    @property
-    def lecture_id(self):
-        return self._lecture_id
-
-    @property
-    def tutorial_id(self):
-        return self._tutorial_id
-
-    @property
-    def tutor(self):
-        return self._tutor
-
-    @property
-    def time(self):
-        return self._time
-
-    @property
-    def location(self):
-        return self._location
-
-    def __str__(self):
-        parts = self.tutor.split()
-        name = f"{parts[0][0]}. {parts[-1]}"
-        return f'Tutorial({self.lecture_id}, {self.tutorial_id}, {self.time} - {self.location}, {name})'
-
-    def __repr__(self):
-        return str(self)
-
-    def to_json(self):
-        return {
-            "lecture_name": self._lecture_name,
-            "lecture_id": self._lecture_id,
-            "tutorial_id": self._tutorial_id,
-            "tutor": self._tutor,
-            "tutor_mail": self.tutor_mail,
-            "time": self._time,
-            "location": self._location
-        }
-
-    @staticmethod
-    def from_json(dictionary):
-        tutorial = Tutorial(
-            dictionary['lecture_name'],
-            dictionary['lecture_id'],
-            dictionary['tutorial_id'],
-            dictionary['tutor'],
-            dictionary['time'],
-            dictionary['location']
-        )
-        tutorial.tutor_mail = dictionary['tutor_mail']
+from data.data import Student, Tutorial
 
 
 class MuesliSession:
@@ -75,28 +9,54 @@ class MuesliSession:
         self._session = None
         self._account = account
         self._logout_url = None
+        self._test_url = 'https://muesli.mathi.uni-heidelberg.de/start'
+
+    @property
+    def name(self):
+        return f"Muesli [{self.get_online_state()}]"
+
+    @property
+    def online(self):
+        return self.get_online_state() == 'online'
+
+    def get_online_state(self):
+        result = 'offline'
+        if self._session is not None:
+            response = self._session.get(self._test_url)
+            if response.status_code == 200:
+                result = 'online'
+            elif response.status_code == 302:
+                result = 'login required'
+            else:
+                result = 'offline'
+        return result
 
     def __enter__(self):
-        self._session = Session()
-        self._login()
+        self.login()
         return self
 
-    def _login(self):
+    def login(self):
+        self._session = Session()
         login_url = 'https://muesli.mathi.uni-heidelberg.de/user/login'
-        self._session.post(login_url, data={
+        response = self._session.post(login_url, data={
             'email': self._account.email,
             'password': self._account.password
         })
+        soup = BeautifulSoup(response.content, 'html.parser')
+        error_element = soup.find('p', attrs={'class':'error'})
+        if error_element is not None:
+            raise ConnectionRefusedError('Wrong username or password.')
+
         self._logout_url = 'https://muesli.mathi.uni-heidelberg.de/user/logout'
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self._logout()
-        self._session.close()
-        self._session = None
+        self.logout()
 
-    def _logout(self):
+    def logout(self):
         self._session.get(self._logout_url)
         self._logout_url = None
+        self._session.close()
+        self._session = None
 
     def get_my_tutorials(self, lecture_id, my_name):
         response = self._session.get(f'https://muesli.mathi.uni-heidelberg.de/lecture/view/{lecture_id}')
