@@ -6,7 +6,7 @@ def clear():
 
 
 def colored_string(message, color):
-    colors = {'red':124, 'orange':202, 'green':40}
+    colors = {'red': 124, 'orange': 202, 'green': 40}
     if type(color) == str:
         color = colors[color]
 
@@ -48,6 +48,7 @@ class ConsoleFormatter:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.outdent()
 
+
 def string_table(header, columns, align_header='^', align_row='>'):
     def pad_entry(entry, size, align):
         return ("{:" + f'{align}{size}' + "}").format(entry)
@@ -71,8 +72,34 @@ def string_table(header, columns, align_header='^', align_row='>'):
 
     table = list()
     table.append(' │ '.join([pad_entry(entry, max_width[i], align_header) for i, entry in enumerate(header)]))
-    table.append('─┼─'.join(['─'* max_width[i] for i in range(len(header))]))
+    table.append('─┼─'.join(['─' * max_width[i] for i in range(len(header))]))
     for col_index in range(max(map(len, columns))):
-        table.append(' │ '.join([pad_entry(get_or_default(columns[i], col_index), max_width[i], align_row) for i in range(len(header))]))
+        table.append(' │ '.join(
+            [pad_entry(get_or_default(columns[i], col_index), max_width[i], align_row) for i in range(len(header))]))
 
     return table
+
+
+def single_choice(title, options, printer):
+    printer.inform(title)
+    for i, option in enumerate(options):
+        printer.inform(f'   {i:2d}: {option}')
+    printer.inform("Enter index to confirm your choice or 'cancel' to cancel the input.")
+    printer.inform()
+
+    while True:
+        answer = input(">: ")
+        if answer == 'cancel':
+            break
+        try:
+            answer = int(answer)
+            if answer < 0:
+                with printer:
+                    printer.warning("Only positive indices are allowed. Try again or type 'cancel'.")
+            else:
+                break
+        except ValueError:
+            with printer:
+                printer.warning("Please enter an integer number. Try again or type 'cancel'.")
+
+    return answer
