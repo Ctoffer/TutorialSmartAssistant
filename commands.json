@@ -3,7 +3,7 @@
     "class": "HelpCommand",
     "aliases": ["?"],
     "description": "Lists all available commands, with a short description",
-    "parameter": {},
+    "arguments": {},
     "requires": [
       "Command Information"
     ]
@@ -12,9 +12,31 @@
     "class": "ExitCommand",
     "aliases":["leave", "stop", "finish"],
     "description": "Stops the assistant and closes all open network connections",
-    "parameter": {},
+    "arguments": {},
     "requires": [
       "Runtime Modifiers"
     ]
+  },
+  "information": {
+    "class": "InfoCommand",
+    "aliases": ["info"],
+    "description": "Shows information of students, tutors, tutorials or exercises.",
+    "arguments": {
+      "student": {
+        "short": "-s",
+        "long": "--student",
+        "type": "str"
+      },
+      "tutor": {
+        "short": "-t",
+        "long": "--tutor",
+        "type": "str"
+      },
+      "tutorial": {
+        "short": "-T",
+        "long": "--Tutorial",
+        "type": "str"
+      }
+    }
   }
 }
