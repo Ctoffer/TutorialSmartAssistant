@@ -35,6 +35,10 @@ class CommandRegister:
         self._listed_commands = list()
         self._aliases = dict()
 
+    @property
+    def commands(self):
+        return self._commands.values()
+
     def register_command(self, command):
         self._listed_commands = command.name
         self._aliases.update({alias: command.name for alias in command.aliases})

@@ -1,4 +1,6 @@
+from assistance.command.help import HelpCommand
 from assistance.command.info import InfoCommand
+from assistance.command.stop import StopCommand
 from assistance.commands import CommandRegister, parse_command, normalize_string
 from data.storage import InteractiveDataStorage
 from moodle.api import MoodleSession
@@ -17,6 +19,8 @@ class SmartAssistant:
 
         self._initialize_connections()
         self._initialize_storage()
+        self._command_register.register_command(StopCommand(self._printer, self._stop))
+        self._command_register.register_command(HelpCommand(self._printer, self._command_register))
         self._command_register.register_command(InfoCommand(self._printer, self._storage))
 
     def _initialize_connections(self):
@@ -85,10 +89,15 @@ class SmartAssistant:
                 name, args = parse_command(command)
                 command = self._command_register.get_command(name)
 
-                if len(args) != command.arg_count:
-                    printer.error(f"The command '{command.name}' needs {command.arg_count} arguments, but got {len(args)}.")
-                else:
+                if command.min_arg_count <= len(args) <= command.max_arg_count:
                     command(*args)
+                else:
+                    if command.min_arg_count == command.max_arg_count:
+                        limitation = f"exactly {command.min_arg_count}"
+                    else:
+                        limitation = f"between {command.min_arg_count} and {command.max_arg_count}"
+
+                    printer.error(f"The command '{command.name}' needs {limitation} arguments, but got {len(args)}.")
 
             except KeyError as k:
                 self._printer.error(normalize_string(str(k)))
