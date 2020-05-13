@@ -26,7 +26,7 @@ class StopCommand:
 
     @property
     def help(self):
-        return "No help available"
+        return "No help available."
 
     def __call__(self):
         self._function()

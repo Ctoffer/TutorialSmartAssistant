@@ -33,7 +33,7 @@ class InfoCommand:
 
     @property
     def help(self):
-        return "This command shows information about students, tutorials, tutors and exercises.\n" \
+        return "Shows information about students, tutorials, tutors and exercises.\n" \
                "Aliases:\n" \
                "  ■ info\n" \
                "Required Named Arguments (one of):\n" \
@@ -47,7 +47,7 @@ class InfoCommand:
     def __call__(self, argument):
         parts = argument.split("=")
         if len(parts) < 2 or 2 < len(parts):
-            raise ValueError("Expected an argument of the form <name>=<value>. Use --help for more information.")
+            raise ValueError("Expected an argument of the form <name>=<value>. Use help for more information.")
         name, value = parts
 
         if name in ("--student", "-s"):
