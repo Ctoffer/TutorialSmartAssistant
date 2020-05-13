@@ -155,6 +155,32 @@ class InteractiveDataStorage:
             except BaseException as e:
                 print(f"[ERR] (InteractiveDataStorage: {e})")
 
+    def update_tutorials(self, muesli: MuesliSession, mode="my"):
+        if mode == "my":
+            tutorials = muesli.get_my_tutorials(self.muesli_data.lecture_id, self.my_name)
+            ids = self.my_tutorial_ids
+        elif mode == "other":
+            tutorials = muesli.get_all_tutorials_of_lecture(self.muesli_data.lecture_id,
+                                                            except_ids=self.my_tutorial_ids)
+            ids = self.other_tutorial_ids
+        else:
+            raise ValueError(f"Unknown mode '{mode}'!")
+
+        ids.clear()
+        for tutorial in tutorials:
+            tid = tutorial.tutorial_id
+            self.tutorials[tid] = tutorial
+            ids.append(tid)
+
+        self.physical_storage.save_tutorial_ids(ids, mode)
+        self.physical_storage.save_tutorial_data(self.tutorials)
+
+    def update_students_of_tutorial(self, muesli: MuesliSession, tutorial_id: int):
+        students = muesli.get_all_students_of_tutorial(tutorial_id)
+        self.students[tutorial_id] = students
+        self.physical_storage.save_students(tutorial_id, self.students)
+
+
     def _init_tutorials(self, muesli: MuesliSession):
         print(f"Load tutorial data...", end='')
         tutorials, state = self.physical_storage.load_tutorial_data()
@@ -190,7 +216,7 @@ class InteractiveDataStorage:
                 sleep(2)
 
     def _init_moodle_attributes(self, moodle: MoodleSession):
-        all_students = [student for k, students in self.students.items() for student in students]
+        all_students = self.all_students
         no_moodle_info = [student for student in all_students if student.moodle_student_id is None]
 
         if len(no_moodle_info) == len(all_students):
@@ -279,30 +305,10 @@ class InteractiveDataStorage:
     def moodle_data(self):
         return self.__instance.config.moodle
 
-    def update_tutorials(self, muesli: MuesliSession, mode="my"):
-        if mode == "my":
-            tutorials = muesli.get_my_tutorials(self.muesli_data.lecture_id, self.my_name)
-            ids = self.my_tutorial_ids
-        elif mode == "other":
-            tutorials = muesli.get_all_tutorials_of_lecture(self.muesli_data.lecture_id,
-                                                            except_ids=self.my_tutorial_ids)
-            ids = self.other_tutorial_ids
-        else:
-            raise ValueError(f"Unknown mode '{mode}'!")
+    @property
+    def all_students(self):
+        return [student for k, students in self.students.items() for student in students]
 
-        ids.clear()
-        for tutorial in tutorials:
-            tid = tutorial.tutorial_id
-            self.tutorials[tid] = tutorial
-            ids.append(tid)
-
-        self.physical_storage.save_tutorial_ids(ids, mode)
-        self.physical_storage.save_tutorial_data(self.tutorials)
-
-    def update_students_of_tutorial(self, muesli: MuesliSession, tutorial_id: int):
-        students = muesli.get_all_students_of_tutorial(tutorial_id)
-        self.__instance.students[tutorial_id] = students
-        self.__instance.physical_storage.save_students(tutorial_id, self.__instance.students)
 
     @property
     def my_tutorials(self):
@@ -310,10 +316,27 @@ class InteractiveDataStorage:
 
     @property
     def other_tutorials(self):
-        return [self.__instance.tutorials[tid] for tid in self.other_tutorial_ids]
+        return [self.tutorials[tid] for tid in self.other_tutorial_ids]
+
+    def get_tutorial_by_id(self, tutorial_id):
+        if tutorial_id not in self.tutorials:
+            raise KeyError(f"There is no tutorial with the id {tutorial_id}")
+        return self.tutorials[tutorial_id]
 
     def get_all_students_of_tutorial(self, tutorial_id: int) -> list:
-        return list(self.__instance.students[tutorial_id])
+        return list(self.students[tutorial_id])
 
     def get_all_tutors(self) -> set:
         return {tutorial.tutor for tutorial in self.tutorials.values()}
+
+    def get_students_by_name(self, name):
+        result = list()
+        for student in self.all_students:
+            if name in student.muesli_name \
+                    or name in student.alias \
+                    or (student.moodle_name is not None and name in student.moodle_name):
+                result.append(student)
+        return result
+
+    def get_all_tutorials_of_tutor(self, tutor):
+        return [tutorial for tutorial in self.tutorials.values() if tutorial.tutor == tutor]

@@ -36,6 +36,11 @@
         "short": "-T",
         "long": "--Tutorial",
         "type": "str"
+      },
+      "exercise": {
+        "short": "-e",
+        "long": "--exercise",
+        "type": "int"
       }
     }
   }

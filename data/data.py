@@ -80,6 +80,16 @@ class Student:
         self.alias = self._muesli_name.split()[0]
 
     @property
+    def muesli_data(self):
+        return {
+            "Tutorial-Id": self.tutorial_id,
+            "Id": self.muesli_student_id,
+            "Name": self.muesli_name,
+            "E-Mail": self.muesli_mail,
+            "Subject": self.subject
+        }
+
+    @property
     def tutorial_id(self):
         return self._tutorial_id
 
@@ -103,6 +113,14 @@ class Student:
         self._moodle_student_id = moodle_student_id
         self._moodle_name = moodle_name
         self._moodle_mail = moodle_mail
+
+    @property
+    def moodle_data(self):
+        return {
+            "Id": self.moodle_student_id,
+            "Name": self.moodle_name,
+            "E-Mail": self.moodle_mail,
+        }
 
     @property
     def moodle_student_id(self):

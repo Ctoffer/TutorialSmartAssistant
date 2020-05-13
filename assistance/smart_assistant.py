@@ -1,3 +1,5 @@
+from assistance.command.info import InfoCommand
+from assistance.commands import CommandRegister, parse_command, normalize_string
 from data.storage import InteractiveDataStorage
 from moodle.api import MoodleSession
 from muesli.api import MuesliSession
@@ -10,10 +12,12 @@ class SmartAssistant:
         self._printer = ConsoleFormatter()
         self._muesli = MuesliSession(account=self._storage.muesli_account)
         self._moodle = MoodleSession(account=self._storage.moodle_account)
+        self._command_register = CommandRegister()
         self.ready = True
 
         self._initialize_connections()
         self._initialize_storage()
+        self._command_register.register_command(InfoCommand(self._printer, self._storage))
 
     def _initialize_connections(self):
         self._print_header("Initializing Connections")
@@ -77,9 +81,23 @@ class SmartAssistant:
     def execute_cycle(self):
         command = input(">: ")
         with self._printer as printer:
-            printer.inform(f"Entered: {command}")
-            if command == "stop":
-                self._stop()
+            try:
+                name, args = parse_command(command)
+                command = self._command_register.get_command(name)
+
+                if len(args) != command.arg_count:
+                    printer.error(f"The command '{command.name}' needs {command.arg_count} arguments, but got {len(args)}.")
+                else:
+                    command(*args)
+
+            except KeyError as k:
+                self._printer.error(normalize_string(str(k)))
+                self._printer.error("Please refer to 'help' / '?' to list all available commands.")
+
+            except Exception as e:
+                self._printer.error(f'{e.__class__.__name__}: {e}')
+
+        self._printer.inform()
 
     def _stop(self):
         self.ready = False
