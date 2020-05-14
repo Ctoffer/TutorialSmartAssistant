@@ -1,6 +1,8 @@
+from assistance.command.connection import ConnectionCommand
 from assistance.command.help import HelpCommand
 from assistance.command.info import InfoCommand
 from assistance.command.stop import StopCommand
+from assistance.command.workflow import WorkflowDownloadCommand
 from assistance.commands import CommandRegister, parse_command, normalize_string
 from data.storage import InteractiveDataStorage
 from moodle.api import MoodleSession
@@ -22,6 +24,8 @@ class SmartAssistant:
         self._command_register.register_command(StopCommand(self._printer, self._stop))
         self._command_register.register_command(HelpCommand(self._printer, self._command_register))
         self._command_register.register_command(InfoCommand(self._printer, self._storage))
+        self._command_register.register_command(ConnectionCommand(self._printer, self._muesli, self._moodle))
+        self._command_register.register_command(WorkflowDownloadCommand(self._printer, self._storage.download_submissions_of_my_students, self._moodle))
 
     def _initialize_connections(self):
         self._print_header("Initializing Connections")

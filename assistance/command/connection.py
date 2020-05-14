@@ -31,7 +31,7 @@ class ConnectionCommand:
 
     @property
     def help(self):
-        return "No help available"
+        return "No help available."
 
     def __call__(self, *args):
         if len(args) == 0:
@@ -39,29 +39,40 @@ class ConnectionCommand:
         else:
             argument = args[0]
 
-            if argument in ("--login", "-s"):
-                self._login()
-            elif argument in ("--state", "-t"):
+            if argument in ("--login", "-i"):
+                self._login_all()
+            elif argument in ("--state", "-s"):
                 self._print_states()
-            elif argument in ("--logout", "-T"):
-                self._logout()
+            elif argument in ("--logout", "-o"):
+                self._logout_all()
             else:
                 raise ValueError(f"Unknown argument '{argument}'")
 
     def _login_all(self):
-        self._muesli.login()
-        self._moodle.login()
+        self._login("MÜSLI", self._muesli)
+        self._login("Moodle", self._moodle)
 
     def _login(self, session_name, session):
-        self.printer.inform(f'{session_name} login ... ')
+        self.printer.inform(f'{session_name} login ... ', end="")
         session.login()
+        self._print_state(session.get_online_state())
+
+    def _logout_all(self):
+        self._logout("MÜSLI", self._muesli)
+        self._logout("Moodle", self._moodle)
+
+    def _logout(self, session_name, session):
+        self.printer.inform(f'{session_name} logout ... ', end="")
+        session.logout()
+        self._print_state(session.get_online_state())
 
     def _print_states(self):
-        self._print_state("MÜSLI", self._muesli.get_online_state())
-        self._print_state("Moodle", self._moodle.get_online_state())
+        self.printer.inform('MÜSLI: ', end="")
+        self._print_state(self._muesli.get_online_state())
+        self.printer.inform('Moodle: ', end="")
+        self._print_state(self._moodle.get_online_state())
 
-    def _print_state(self, session_name, state):
-        self.printer.inform(f'{session_name}: ', end="")
+    def _print_state(self, state):
         if state == "online":
             self.printer.confirm(state)
         elif state == "login required":

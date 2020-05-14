@@ -1,4 +1,5 @@
 import re
+from types import SimpleNamespace
 
 from bs4 import BeautifulSoup
 from requests import Session
@@ -90,3 +91,64 @@ class MoodleSession:
 
         students = sorted(students, key=lambda t: t[2])
         return students
+
+    def find_submissions(self, course_id, exercise_prefix, exercise_number):
+        def is_matching_id(x):
+            return x and x.startswith('section-')
+
+        def is_matching_label(x):
+            return x and x.startswith(f'{exercise_prefix}{exercise_number}')
+
+        def is_matching_url(x):
+            return x and x.startswith('https://moodle.uni-heidelberg.de/mod/assign/view.php?id=')
+
+        soup = self.get_course_page(course_id)
+        table = soup.find('ul', attrs={'class': 'topics'})
+        section = table.find('li', attrs={"id": is_matching_id, "aria-label": is_matching_label})
+        submission_link = section.find('a', attrs={'href':is_matching_url})['href'] + "&action=grading"
+
+        soup = self._show_all_submissions(submission_link)
+        rows = soup.find('table').find('tbody').find_all('tr')
+
+        result = list()
+        for row in rows:
+            columns = row.find_all('td')
+            moodle_student_id = int(columns[0].find('input', attrs={'type':'checkbox'})['value'])
+            download_anchor = columns[8].find('a', attrs={'target':'_blank'})
+
+            if download_anchor is not None:
+                submission_name = download_anchor.text
+                submission_url = download_anchor['href']
+                data = {
+                    "moodle_student_id":moodle_student_id,
+                    "file_name": submission_name,
+                    "url": submission_url
+                }
+                result.append(SimpleNamespace(**data))
+
+        return result
+
+    def _show_all_submissions(self, submission_link):
+        soup = BeautifulSoup(self._session.post(submission_link).content, 'html.parser')
+        context_id = soup.find('input', attrs={'name': 'contextid', 'type': 'hidden'})['value']
+        page_id = soup.find('input', attrs={'name': 'id', 'type': 'hidden'})['value']
+        user_id = soup.find('input', attrs={'name': 'userid', 'type': 'hidden'})['value']
+
+        response = self._session.post(submission_link, data={
+            'id': page_id,
+            'perpage': -1,
+            'action': 'saveoptions',
+            'contextid': context_id,
+            'userid': user_id,
+            'sesskey': self._logout_url.split('sesskey=')[1],
+            '_qf__mod_assign_grading_options_form': 1,
+            'mform_isexpanded_id_general': 1,
+            'filter': None,
+            'downloadasfolders': 1,
+        })
+        import time
+        time.sleep(3)
+        return BeautifulSoup(response.content, "html.parser")
+
+    def download(self, source, target):
+        target.write(self._session.get(source).content)

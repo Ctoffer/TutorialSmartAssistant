@@ -3,7 +3,7 @@ from types import SimpleNamespace
 
 
 def load_config(path):
-    with open(path, 'r') as fp:
+    with open(path, 'r', encoding='utf-8') as fp:
         json_dict = json_load(fp)
 
     return dict_to_simple_namespace(json_dict)
