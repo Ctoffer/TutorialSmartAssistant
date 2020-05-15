@@ -182,8 +182,17 @@ class MuesliSession:
 
         return {row.find_all('td')[3].text.strip() for row in table.find_all('tr') if len(row.find_all('td')) > 0}
 
-    def get_exams_of(self, tutorial_id):
-        raise NotImplementedError("Not implemented yet!")
+    def get_exercise_id(self, tutorial_id, exercise_prefix, exercise_number):
+        response = self._session.get(f'https://muesli.mathi.uni-heidelberg.de/tutorial/view/{tutorial_id}')
+        soup = BeautifulSoup(response.content, "html.parser")
+        return soup.find('a', text=f"{exercise_prefix}{exercise_number}")['href'].split("/")[-2]
+
+    def get_max_credits_of(self, tutorial_id, exercise_id):
+        response = self._session.get(f"https://muesli.mathi.uni-heidelberg.de/exam/statistics/{exercise_id}/{tutorial_id}")
+        soup = BeautifulSoup(response.content, "html.parser")
+        columns = soup.find('table').find_all('tr')[-1].find_all('td')[1:-1]
+        max_credits = [float(column.text) for column in columns]
+        return max_credits
 
     def get_scores_of(self, tutorial_id, exam_id):
         raise NotImplementedError("Not implemented yet!")

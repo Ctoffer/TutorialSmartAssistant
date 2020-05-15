@@ -11,7 +11,15 @@
   },
   "muesli": {
     "lecture_id": "1171",
-    "lecture_name": "Algorithmen und Datenstrukturen"
+    "lecture_name": "Algorithmen und Datenstrukturen",
+    "exercise_prefix": "Übung ",
+    "feedback": {
+      "file_name": "Feedback",
+      "exercise_title": "Feedback zu Übung ",
+      "task_prefix": "Aufgabe ",
+      "show_problems": true,
+      "default_answer": "Keine Kommentar - also war wohl alles richtig."
+    }
   },
   "moodle": {
     "course_id": "2239",

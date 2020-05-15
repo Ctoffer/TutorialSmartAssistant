@@ -4,6 +4,7 @@ from collections import defaultdict
 from json import load as j_load, dump as j_dump
 from os.path import join as p_join
 from time import sleep
+from types import SimpleNamespace
 
 from data.data import Student, Tutorial
 from data.student_matching import match_students, print_result_table
@@ -411,18 +412,90 @@ class InteractiveDataStorage:
                 printer.error('[Err]')
                 printer.error(str(e))
 
-    def get_raw_folder(self, exercise_number):
+    def get_exercise_folder(self, exercise_number):
         return os.path.join(
             self.storage_config.root,
             self.storage_config.submission_root,
-            f'{self.storage_config.exercise_template}{exercise_number}',
+            f'{self.storage_config.exercise_template}{exercise_number}'
+        )
+
+    def get_raw_folder(self, exercise_number):
+        return os.path.join(
+            self.get_exercise_folder(exercise_number),
             self.storage_config.raw_folder
         )
 
     def get_preprocessed_folder(self, exercise_number):
         return os.path.join(
-            self.storage_config.root,
-            self.storage_config.submission_root,
-            f'{self.storage_config.exercise_template}{exercise_number}',
+            self.get_exercise_folder(exercise_number),
             self.storage_config.preprocessed_folder
         )
+
+    def get_working_folder(self, exercise_number):
+        return os.path.join(
+            self.get_exercise_folder(exercise_number),
+            self.storage_config.working_folder
+        )
+
+    def update_exercise_meta(self, muesli, exercise_number):
+        tutorial_id = self.my_tutorial_ids[0]
+        exercise_id = muesli.get_exercise_id(tutorial_id, self.muesli_data.exercise_prefix, exercise_number)
+        max_credits = muesli.get_max_credits_of(tutorial_id, exercise_id)
+        max_credits = [[f'{self.muesli_data.feedback.task_prefix}{i+1}', v] for i, v in enumerate(max_credits)]
+
+        data = {
+            "title": f'{self.muesli_data.feedback.exercise_title}{exercise_number}',
+            "exercise_id": exercise_id,
+            "max_credits": max_credits,
+        }
+
+        path = os.path.join(self.get_exercise_folder(exercise_number), "exercise_meta.json")
+        with open(path, 'w', encoding='utf-8') as fp:
+            j_dump(data, fp)
+
+    def has_exercise_meta(self, exercise_number):
+        path = os.path.join(self.get_exercise_folder(exercise_number), "exercise_meta.json")
+        return os.path.exists(path)
+
+    def generate_feedback_template(self, exercise_number, target_path, printer):
+        path = os.path.join(self.get_exercise_folder(exercise_number), "exercise_meta.json")
+        if not self.has_exercise_meta(exercise_number):
+            raise FileExistsError("The exercise meta data was not created")
+
+        with open(path, 'r', encoding='utf-8') as fp:
+            template_data = SimpleNamespace(**j_load(fp))
+
+        with open(os.path.join(target_path, "submission_meta.json"), 'r', encoding='utf-8') as fp:
+            submission_data = SimpleNamespace(**j_load(fp))
+
+        lines = list()
+        lines.append('┌' + '─' * 98 + '┐')
+        lines.append(f'│{template_data.title:^98}│')
+        lines.append('└' + '─' * 98 + '┘')
+        lines.append(f'Abgegeben als: {submission_data.original_name}')
+        lines.append('')
+
+        if self.muesli_data.feedback.show_problems:
+            lines.append("Mit der Namensgebung der Datei gab es Probleme:")
+            for problem in submission_data.problems:
+                lines.append("  ■ " + problem)
+            lines.append("")
+
+        for task_name, max_credits in template_data.max_credits:
+            max_credits = f'[Max: {max_credits}]'
+            lines.append(f'{task_name:<100}'[:-len(max_credits)] + max_credits)
+            lines.append('─' * 100)
+            lines.append(self.muesli_data.feedback.default_answer)
+            lines.append("")
+            lines.append("")
+
+        feedback_path = os.path.join(target_path, f'{self.muesli_data.feedback.file_name}.txt')
+
+        if os.path.exists(feedback_path):
+            printer.warning(f"There is already a generated feedback file at {target_path}."
+                            f" Please remove it manually, if you want to recreate it.")
+
+        else:
+            with open(feedback_path, 'w', encoding='utf-8') as fp:
+                for line in lines:
+                    print(line, file=fp)

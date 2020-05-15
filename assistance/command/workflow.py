@@ -225,4 +225,59 @@ class WorkflowUnzipCommand:
             return possible_students[index].muesli_name
 
 
+class WorkflowPrepareCommand:
+    def __init__(self, printer, storage, muesli):
+        self.printer = printer
+        self._storage = storage
+        self._muesli = muesli
 
+        self._name = "workflow.prepare"
+        self._aliases = ("w.prep",)
+        self._min_arg_count = 1
+        self._max_arg_count = 1
+
+    @property
+    def name(self):
+        return self._name
+
+    @property
+    def aliases(self):
+        return self._aliases
+
+    @property
+    def min_arg_count(self):
+        return self._min_arg_count
+
+    @property
+    def max_arg_count(self):
+        return self._max_arg_count
+
+    @property
+    def help(self):
+        return "No help available."
+
+    def __call__(self, *args):
+        try:
+            exercise_number = int(args[0])
+
+            preprocessed_folder = self._storage.get_preprocessed_folder(exercise_number)
+            working_folder = self._storage.get_working_folder(exercise_number)
+
+            if not os.path.exists(preprocessed_folder):
+                self.printer.error(f"The data for exercise {exercise_number} was not preprocessed. "
+                                   f"Run workflow.unzip first.")
+
+            if not self._storage.has_exercise_meta(exercise_number):
+                self.printer.inform("Meta data for exercise not found. Syncing from MÜSLI ... ", end='')
+                self._storage.update_exercise_meta(self._muesli, exercise_number)
+                self.printer.confirm("[OK]")
+
+            for directory in os.listdir(preprocessed_folder):
+                src_directory = os.path.join(preprocessed_folder, directory)
+                target_directory = os.path.join(working_folder, directory)
+                if not os.path.exists(target_directory):
+                    shutil.copytree(src_directory, target_directory)
+                if os.path.isdir(target_directory):
+                    self._storage.generate_feedback_template(exercise_number, target_directory, self.printer)
+        except ValueError:
+            self.printer.error(f"Exercise number must be an integer, not '{args[0]}'")
