@@ -289,10 +289,6 @@ class InteractiveDataStorage:
         return self.config.storage
 
     @property
-    def submission_config(self):
-        return self.config.submission
-
-    @property
     def muesli_account(self):
         return self.account_data.muesli
 

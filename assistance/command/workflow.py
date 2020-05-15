@@ -112,7 +112,7 @@ class WorkflowUnzipCommand:
                         shutil.unpack_archive(source_path, target_path)
                         self.printer.confirm("[OK]")
 
-                        with open(os.path.join(target_path, "submission_meta.json"), 'w') as fp:
+                        with open(os.path.join(target_path, "submission_meta.json"), 'w', encoding='utf-8') as fp:
                             data = {
                                 "original_name": file,
                                 "problems": problems
@@ -134,7 +134,11 @@ class WorkflowUnzipCommand:
             file_name = file_name.replace(f'-ex{exercise_number:02d}', correct_file_name_end) \
                 .replace(f'-ex{exercise_number:}', correct_file_name_end)
 
-        if not (file_name.endswith(f"_ex{exercise_number:02d}") or file_name.endswith(f"_ex{exercise_number:}")):
+        if correct_file_name_end != f"_ex{exercise_number:}" and file_name.endswith(f"_ex{exercise_number:}"):
+            problems.append(f"The exercise number should be formatted with two digits.")
+            file_name = file_name.replace(f'_ex{exercise_number:}', correct_file_name_end)
+
+        if not (file_name.endswith(f"_ex{exercise_number:02d}")):
             problems.append(f"Filename does not end with required '{correct_file_name_end}'.")
             file_name += f"_ex{exercise_number:02d}"
 
@@ -147,7 +151,10 @@ class WorkflowUnzipCommand:
             student_names = list()
             for student_name in file_name.split("_"):
                 parts = re.findall(r'[A-Z](?:[a-z]+|[A-Z]*(?=[A-Z]|$))', student_name)
-                student_name = ("-".join(parts)).split("-")
+                if len(parts) > 0:
+                    student_name = ("-".join(parts))
+
+                student_name = student_name.split("-")
                 student_name = " ".join(student_name)
                 if len(student_name) > 0:
                     student_names.append(student_name)
@@ -163,6 +170,11 @@ class WorkflowUnzipCommand:
                     self.printer.warning(f"Found more then one possible student for '{student_name}'")
 
             student_names = sorted([student.muesli_name.replace(' ', '-') for student in students])
+            if len(student_names) < 2:
+                problems.append("Submission groups should consist at least of 2 members!")
+            if 3 < len(student_names):
+                problems.append("Submission groups should consist at most of 3 members!")
+
             result = '_'.join(student_names) + correct_file_name_end
         else:
             problem = "Fatal: Wrong naming detected - manuel correction needed."
@@ -184,8 +196,14 @@ class WorkflowUnzipCommand:
             for student_name in sorted(student_names):
                 name_parts = [_ for _ in student_name.split() if len(_) > 0]
                 result.append(f'{name_parts[0]}-{name_parts[-1]}')
+
+            if len(result) < 2:
+                problems.append("Submission groups should consist at least of 2 members!")
+            if 3 < len(result):
+                problems.append("Submission groups should consist at most of 3 members!")
+
             result = '_'.join(result) + correct_file_name_end
-            problems.append(f"Please use the correct file format! For this submission it would have been '{result}'")
+            problems.append(f"Please use the correct file format! For this submission it would have been '{result}.zip'")
 
         return result, problems
 
