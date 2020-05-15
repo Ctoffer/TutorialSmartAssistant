@@ -92,7 +92,7 @@ class MoodleSession:
         students = sorted(students, key=lambda t: t[2])
         return students
 
-    def find_submissions(self, course_id, exercise_prefix, exercise_number):
+    def find_submissions(self, course_id, exercise_prefix, exercise_number, printer):
         def is_matching_id(x):
             return x and x.startswith('section-')
 
@@ -114,9 +114,16 @@ class MoodleSession:
         for row in rows:
             columns = row.find_all('td')
             moodle_student_id = int(columns[0].find('input', attrs={'type':'checkbox'})['value'])
-            download_anchor = columns[8].find('a', attrs={'target':'_blank'})
+            name = columns[2].find('a').text
+            download_anchor = columns[8].find_all('a', attrs={'target':'_blank'})
 
-            if download_anchor is not None:
+            if len(download_anchor) > 0:
+                if len(download_anchor) > 1:
+                    printer.warning(f"'{name}' has uploaded more than one submission! Using latest...")
+                    download_anchor = download_anchor[-1]
+                else:
+                    download_anchor = download_anchor[0]
+
                 submission_name = download_anchor.text
                 submission_url = download_anchor['href']
                 data = {

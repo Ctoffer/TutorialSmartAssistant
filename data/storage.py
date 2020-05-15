@@ -267,18 +267,18 @@ class InteractiveDataStorage:
 
     def _set_tutorial_ids(self, value, mode):
         if mode == 'my':
-            self.__instance.my_tutorial_ids = value
+            self.my_tutorial_ids = value
         elif mode == 'other':
-            self.__instance.other_tutorial_ids = value
+            self.other_tutorial_ids = value
         else:
             raise KeyError(f"Unknown id set '{mode}'!")
 
     def _get_tutorial_ids(self, mode):
         result = None
         if mode == 'my':
-            result = self.__instance.my_tutorial_ids
+            result = self.my_tutorial_ids
         elif mode == 'other':
-            result = self.__instance.other_tutorial_ids
+            result = self.other_tutorial_ids
         else:
             raise KeyError(f"Unknown id set '{mode}'!")
 
@@ -286,23 +286,27 @@ class InteractiveDataStorage:
 
     @property
     def storage_config(self):
-        return self.__instance.config.storage
+        return self.config.storage
+
+    @property
+    def submission_config(self):
+        return self.config.submission
 
     @property
     def muesli_account(self):
-        return self.__instance.account_data.muesli
+        return self.account_data.muesli
 
     @property
     def muesli_data(self):
-        return self.__instance.config.muesli
+        return self.config.muesli
 
     @property
     def moodle_account(self):
-        return self.__instance.account_data.moodle
+        return self.account_data.moodle
 
     @property
     def moodle_data(self):
-        return self.__instance.config.moodle
+        return self.config.moodle
 
     @property
     def all_students(self):
@@ -311,6 +315,10 @@ class InteractiveDataStorage:
     @property
     def my_students(self):
         return [student for student in self.all_students if student.tutorial_id in self.my_tutorial_ids]
+
+    @property
+    def other_students(self):
+        return [student for student in self.all_students if student.tutorial_id in self.other_tutorial_ids]
 
     @property
     def my_tutorials(self):
@@ -331,14 +339,35 @@ class InteractiveDataStorage:
     def get_all_tutors(self) -> set:
         return {tutorial.tutor for tutorial in self.tutorials.values()}
 
-    def get_students_by_name(self, name):
-        result = list()
-        for student in self.all_students:
-            if name in student.muesli_name \
-                    or name in student.alias \
-                    or (student.moodle_name is not None and name in student.moodle_name):
-                result.append(student)
-        return result
+    def get_students_by_name(self, name, mode='all'):
+        def prepare(string):
+            return string.lower().replace('ä', 'ae').replace('ö', 'oe').replace('ü', 'ue').replace('ß', 'ss')
+
+        name_parts = [prepare(_) for _ in name.split() if len(_) > 0]
+        if mode == 'all':
+            all_students = self.all_students
+        elif mode == 'my':
+            all_students = self.my_students
+        elif mode == 'other':
+            all_students = self.other_students
+        else:
+            raise ValueError(f"Unknown mode '{mode}' in get_students_by_name (storage.py)")
+
+        result = set()
+
+        for student in all_students:
+            if all([name_part in prepare(student.muesli_name) for name_part in name_parts]):
+                result = [student]
+                break
+
+            for name_part in name_parts:
+                if name_part in prepare(student.muesli_name) \
+                        or name_part in prepare(student.alias) \
+                        or (student.moodle_name is not None and name_part in prepare(student.moodle_name)):
+                    result.add(student)
+                    break
+
+        return list(result)
 
     def get_all_tutorials_of_tutor(self, tutor):
         return [tutorial for tutorial in self.tutorials.values() if tutorial.tutor == tutor]
@@ -349,7 +378,8 @@ class InteractiveDataStorage:
         submissions = moodle.find_submissions(
             self.moodle_data.course_id,
             self.moodle_data.exercise_prefix,
-            exercise_number
+            exercise_number,
+            printer
         )
         printer.inform(f"Found a total of {len(submissions)} for '{self.moodle_data.exercise_prefix}{exercise_number}'")
         my_students = self.my_students
@@ -368,7 +398,8 @@ class InteractiveDataStorage:
         for submission in submissions:
             with open(os.path.join(folder, submission.file_name), 'wb') as fp:
                 try:
-                    printer.inform(f"Downloading submission of {my_students[submission.moodle_student_id]} ... ", end='')
+                    printer.inform(f"Downloading submission of {my_students[submission.moodle_student_id]} ... ",
+                                   end='')
                     moodle.download(submission.url, fp)
                     printer.confirm('[Ok]')
                 except Exception as e:
@@ -383,3 +414,19 @@ class InteractiveDataStorage:
             except Exception as e:
                 printer.error('[Err]')
                 printer.error(str(e))
+
+    def get_raw_folder(self, exercise_number):
+        return os.path.join(
+            self.storage_config.root,
+            self.storage_config.submission_root,
+            f'{self.storage_config.exercise_template}{exercise_number}',
+            self.storage_config.raw_folder
+        )
+
+    def get_preprocessed_folder(self, exercise_number):
+        return os.path.join(
+            self.storage_config.root,
+            self.storage_config.submission_root,
+            f'{self.storage_config.exercise_template}{exercise_number}',
+            self.storage_config.preprocessed_folder
+        )
