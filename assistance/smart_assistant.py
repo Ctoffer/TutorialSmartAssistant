@@ -1,4 +1,5 @@
 from assistance.command.connection import ConnectionCommand
+from assistance.command.crossover import ImportCommand, ExportCommand
 from assistance.command.help import HelpCommand
 from assistance.command.info import InfoCommand
 from assistance.command.stop import StopCommand
@@ -29,6 +30,8 @@ class SmartAssistant:
             WorkflowDownloadCommand(self._printer, self._storage.download_submissions_of_my_students, self._moodle))
         self._command_register.register_command(WorkflowUnzipCommand(self._printer, self._storage))
         self._command_register.register_command(WorkflowPrepareCommand(self._printer, self._storage, self._muesli))
+        self._command_register.register_command(ImportCommand(self._printer, self._storage))
+        self._command_register.register_command(ExportCommand(self._printer, self._storage))
 
     def _initialize_connections(self):
         self._print_header("Initializing Connections")

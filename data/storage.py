@@ -85,6 +85,37 @@ class PhysicalDataStorage:
 
         return result
 
+    def save_exchanged_students(self, students, mode):
+        if mode == 'imported':
+            file_name = "imported_students.json"
+        elif mode == 'exported':
+            file_name = "exported_students.json"
+        else:
+            raise ValueError(f"Unknown mode '{mode}' (storage.py: save_exchanged_students)")
+
+        directory = ensure_folder_exists(p_join(self._meta_path, "students"))
+        path = p_join(directory, file_name)
+        with open(path, 'w') as fp:
+            j_dump(students, fp, indent=4)
+
+    def load_exchanged_students(self, mode):
+        if mode == 'imported':
+            file_name = "imported_students.json"
+        elif mode == 'exported':
+            file_name = "exported_students.json"
+        else:
+            raise ValueError(f"Unknown mode '{mode}' (storage.py: load_exchanged_students)")
+
+        directory = ensure_folder_exists(p_join(self._meta_path, "students"))
+        path = p_join(directory, file_name)
+        result = list()
+
+        if os.path.exists(path):
+            with open(path, 'r') as fp:
+                result = j_load(fp)
+
+        return result
+
 
 class InteractiveDataStorage:
     __instance = None
@@ -98,6 +129,8 @@ class InteractiveDataStorage:
         InteractiveDataStorage.__instance.other_tutorial_ids = list()
         InteractiveDataStorage.__instance.tutorials = dict()
         InteractiveDataStorage.__instance.students = dict()
+        InteractiveDataStorage.__instance.exported_students = list()
+        InteractiveDataStorage.__instance.imported_students = list()
         InteractiveDataStorage.__instance.scores = dict()
         InteractiveDataStorage.__instance.account_data = load_config("account_data.json")
         InteractiveDataStorage.__instance.config = load_config("config.json")
@@ -113,6 +146,9 @@ class InteractiveDataStorage:
         self._init_tutorials(muesli)
         self._init_students(muesli)
         self._init_moodle_attributes(moodle)
+
+        self.__instance.imported_students = self.physical_storage.load_exchanged_students('imported')
+        self.__instance.exported_students = self.physical_storage.load_exchanged_students('exported')
 
     def _init_my_name(self, muesli: MuesliSession):
         print(f"Load my name ...", end='')
@@ -311,11 +347,25 @@ class InteractiveDataStorage:
 
     @property
     def my_students(self):
-        return [student for student in self.all_students if student.tutorial_id in self.my_tutorial_ids]
+        return [student for student in self.all_students
+                if student.tutorial_id in self.my_tutorial_ids
+                or student.muesli_student_id in self.imported_students]
 
     @property
     def other_students(self):
-        return [student for student in self.all_students if student.tutorial_id in self.other_tutorial_ids]
+        return [student for student in self.all_students
+                if student.tutorial_id in self.other_tutorial_ids
+                or student.muesli_student_id in self.exported_students]
+
+    def list_students(self, tutorial_id):
+        if tutorial_id in self.my_tutorial_ids:
+            return [student for student in self.all_students
+                    if student.tutorial_id == tutorial_id
+                    or student.muesli_student_id in self.imported_students]
+        else:
+            return [student for student in self.all_students
+                    if student.tutorial_id == tutorial_id
+                    or student.muesli_student_id in self.exported_students]
 
     @property
     def my_tutorials(self):
@@ -324,6 +374,14 @@ class InteractiveDataStorage:
     @property
     def other_tutorials(self):
         return [self.tutorials[tid] for tid in self.other_tutorial_ids]
+
+    def export_student(self, student):
+        self.exported_students.append(student.muesli_student_id)
+        self.physical_storage.save_exchanged_students(self.exported_students, 'exported')
+
+    def import_student(self, student):
+        self.imported_students.append(student.muesli_student_id)
+        self.physical_storage.save_exchanged_students(self.exported_students, 'imported')
 
     def get_tutorial_by_id(self, tutorial_id):
         if tutorial_id not in self.tutorials:
@@ -441,7 +499,7 @@ class InteractiveDataStorage:
         tutorial_id = self.my_tutorial_ids[0]
         exercise_id = muesli.get_exercise_id(tutorial_id, self.muesli_data.exercise_prefix, exercise_number)
         max_credits = muesli.get_max_credits_of(tutorial_id, exercise_id)
-        max_credits = [[f'{self.muesli_data.feedback.task_prefix}{i+1}', v] for i, v in enumerate(max_credits)]
+        max_credits = [[f'{self.muesli_data.feedback.task_prefix}{i + 1}', v] for i, v in enumerate(max_credits)]
 
         data = {
             "title": f'{self.muesli_data.feedback.exercise_title}{exercise_number}',
@@ -483,6 +541,7 @@ class InteractiveDataStorage:
 
         for task_name, max_credits in template_data.max_credits:
             max_credits = f'[Max: {max_credits}]'
+
             lines.append(f'{task_name:<100}'[:-len(max_credits)] + max_credits)
             lines.append('─' * 100)
             lines.append(self.muesli_data.feedback.default_answer)

@@ -63,26 +63,7 @@ class InfoCommand:
             raise ValueError(f"Unknown argument '{name}'")
 
     def _print_student_info(self, value):
-        value = normalize_string(value)
-        selection = self._storage.get_students_by_name(value)
-
-        if 1 < len(selection) < 11:
-            selected_index = single_choice(f"Found {len(selection)} possible choices", selection, self.printer)
-            student = selection[selected_index]
-        elif 11 <= len(selection):
-            self.printer.inform("There are a lot of possibilities. Show them all? (y/n)")
-            if self.printer.input(">: ") == 'y':
-                selected_index = single_choice(f"Found {len(selection)} possible choices", selection, self.printer)
-                student = selection[selected_index]
-            else:
-                student = None
-        else:
-            student = selection[0]
-
-        if student is None:
-            self.printer.warning("Canceled")
-        else:
-            self._print_student_info_card(student)
+        select_student_by_name(value, self._storage, self.printer, self._print_student_info_card)
 
     def _print_student_info_card(self, student: Student):
         print_header(f'{student.muesli_name} (aka {student.alias})', self.printer)
@@ -154,3 +135,34 @@ class InfoCommand:
 
         for line in lines:
             self.printer.inform(line)
+
+
+def select_student_by_name(value, storage, printer, action, mode='all', too_much_limit=11):
+    value = normalize_string(value)
+    possible_students = storage.get_students_by_name(value, mode=mode)
+
+    if 1 < len(possible_students) < too_much_limit:
+        selected_index = single_choice(
+            f"Found {len(possible_students)} possible choices",
+            possible_students,
+            printer
+        )
+        student = possible_students[selected_index]
+    elif too_much_limit <= len(possible_students):
+        printer.inform("There are a lot of possibilities. Show them all? (y/n)")
+        if printer.input(">: ") == 'y':
+            selected_index = single_choice(
+                f"Found {len(possible_students)} possible choices",
+                possible_students,
+                printer
+            )
+            student = possible_students[selected_index]
+        else:
+            student = None
+    else:
+        student = possible_students[0]
+
+    if student is None:
+        printer.warning("Canceled")
+    else:
+        action(student)
