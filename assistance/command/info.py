@@ -140,6 +140,7 @@ class InfoCommand:
 def select_student_by_name(value, storage, printer, action, mode='all', too_much_limit=11):
     value = normalize_string(value)
     possible_students = storage.get_students_by_name(value, mode=mode)
+    student = None
 
     if 1 < len(possible_students) < too_much_limit:
         selected_index = single_choice(
@@ -147,7 +148,8 @@ def select_student_by_name(value, storage, printer, action, mode='all', too_much
             possible_students,
             printer
         )
-        student = possible_students[selected_index]
+        if selected_index is not None:
+            student = possible_students[selected_index]
     elif too_much_limit <= len(possible_students):
         printer.inform("There are a lot of possibilities. Show them all? (y/n)")
         if printer.input(">: ") == 'y':
@@ -156,10 +158,9 @@ def select_student_by_name(value, storage, printer, action, mode='all', too_much
                 possible_students,
                 printer
             )
-            student = possible_students[selected_index]
-        else:
-            student = None
-    else:
+            if selected_index is not None:
+                student = possible_students[selected_index]
+    elif len(possible_students) == 1:
         student = possible_students[0]
 
     if student is None:

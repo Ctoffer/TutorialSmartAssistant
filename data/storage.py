@@ -411,7 +411,7 @@ class InteractiveDataStorage:
         result = set()
 
         for student in all_students:
-            if all([name_part in prepare(student.muesli_name) for name_part in name_parts]):
+            if all([name_part == prepare(student.muesli_name) for name_part in name_parts]):
                 result = [student]
                 break
 

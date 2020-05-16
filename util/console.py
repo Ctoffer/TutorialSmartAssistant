@@ -146,6 +146,7 @@ def single_choice(title, options, printer):
     while True:
         answer = printer.input(">: ")
         if answer == 'cancel':
+            answer = None
             break
         try:
             answer = int(answer)
