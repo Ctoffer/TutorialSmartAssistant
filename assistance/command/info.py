@@ -166,3 +166,5 @@ def select_student_by_name(value, storage, printer, action, mode='all', too_much
         printer.warning("Canceled")
     else:
         action(student)
+
+    return student
