@@ -381,7 +381,7 @@ class InteractiveDataStorage:
 
     def import_student(self, student):
         self.imported_students.append(student.muesli_student_id)
-        self.physical_storage.save_exchanged_students(self.exported_students, 'imported')
+        self.physical_storage.save_exchanged_students(self.imported_students, 'imported')
 
     def get_tutorial_by_id(self, tutorial_id):
         if tutorial_id not in self.tutorials:

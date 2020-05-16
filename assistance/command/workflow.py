@@ -195,7 +195,7 @@ class WorkflowUnzipCommand:
             result = []
             for student_name in sorted(student_names):
                 name_parts = [_ for _ in student_name.split() if len(_) > 0]
-                result.append(f'{name_parts[0]}-{name_parts[-1]}')
+                result.append(f'{name_parts[0].replace("-", "")}-{name_parts[-1].replace("-", "")}')
 
             if len(result) < 2:
                 problems.append("Submission groups should consist at least of 2 members!")
