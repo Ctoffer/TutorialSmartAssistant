@@ -6,6 +6,8 @@ from os.path import join as p_join
 from time import sleep
 from types import SimpleNamespace
 
+import unicodedata
+
 from data.data import Student, Tutorial
 from data.student_matching import match_students, print_result_table
 from moodle.api import MoodleSession
@@ -395,10 +397,6 @@ class InteractiveDataStorage:
         return {tutorial.tutor for tutorial in self.tutorials.values()}
 
     def get_students_by_name(self, name, mode='all'):
-        def prepare(string):
-            return string.lower().replace('ä', 'ae').replace('ö', 'oe').replace('ü', 'ue').replace('ß', 'ss')
-
-        name_parts = [prepare(_) for _ in name.split() if len(_) > 0]
         if mode == 'all':
             all_students = self.all_students
         elif mode == 'my':
@@ -408,19 +406,7 @@ class InteractiveDataStorage:
         else:
             raise ValueError(f"Unknown mode '{mode}' in get_students_by_name (storage.py)")
 
-        result = set()
-
-        for student in all_students:
-            if all([name_part == prepare(student.muesli_name) for name_part in name_parts]):
-                result = [student]
-                break
-
-            for name_part in name_parts:
-                if name_part in prepare(student.muesli_name) \
-                        or name_part in prepare(student.alias) \
-                        or (student.moodle_name is not None and name_part in prepare(student.moodle_name)):
-                    result.add(student)
-                    break
+        result = match_student(name, all_students)
 
         return list(result)
 
@@ -507,16 +493,19 @@ class InteractiveDataStorage:
             "max_credits": max_credits,
         }
 
-        path = os.path.join(self.get_exercise_folder(exercise_number), "exercise_meta.json")
+        path = self._get_exercise_meta_path(exercise_number)
         with open(path, 'w', encoding='utf-8') as fp:
             j_dump(data, fp)
 
+    def _get_exercise_meta_path(self, exercise_number):
+        return os.path.join(self.get_exercise_folder(exercise_number), "exercise_meta.json")
+
     def has_exercise_meta(self, exercise_number):
-        path = os.path.join(self.get_exercise_folder(exercise_number), "exercise_meta.json")
+        path = self._get_exercise_meta_path(exercise_number)
         return os.path.exists(path)
 
     def generate_feedback_template(self, exercise_number, target_path, printer):
-        path = os.path.join(self.get_exercise_folder(exercise_number), "exercise_meta.json")
+        path = self._get_exercise_meta_path(exercise_number)
         if not self.has_exercise_meta(exercise_number):
             raise FileExistsError("The exercise meta data was not created")
 
@@ -558,3 +547,58 @@ class InteractiveDataStorage:
             with open(feedback_path, 'w', encoding='utf-8') as fp:
                 for line in lines:
                     print(line, file=fp)
+
+
+def match_student(input_name, list_of_students):
+    def strip_accents(text):
+        text = unicodedata.normalize('NFD', text) \
+            .encode('ascii', 'ignore') \
+            .decode("utf-8")
+
+        return str(text)
+
+    def preprocess_name(name):
+        if name is None:
+            return list()
+        else:
+            processed_name = name.lower()
+            processed_name = processed_name.replace('ä', 'ae')
+            processed_name = processed_name.replace('ö', 'oe')
+            processed_name = processed_name.replace('ü', 'ue')
+            processed_name = processed_name.replace('ß', 'ss')
+            processed_name = strip_accents(processed_name)
+            processed_name = processed_name.split()
+            return processed_name
+
+    for student in list_of_students:
+        if preprocess_name(input_name) == preprocess_name(student.muesli_name):
+            return [student]
+
+    result = list()
+    for student in list_of_students:
+        result.append((preprocess_name(student.muesli_name), preprocess_name(student.moodle_name), student))
+
+    for name_part in preprocess_name(input_name):
+        tmp = list(result)
+        for muesli_name, moodle_name, student in tmp:
+            muesli_index, moodle_index = None, None
+            for idx, muesli_name_part in enumerate(muesli_name):
+                if name_part in muesli_name_part:
+                    muesli_index = idx
+                    break
+
+            for idx, moodle_name_part in enumerate(moodle_name):
+                if name_part in moodle_name_part:
+                    moodle_index = idx
+                    break
+
+            if muesli_index is not None:
+                del muesli_name[muesli_index]
+
+            if moodle_index is not None:
+                del moodle_name[moodle_index]
+
+            if muesli_index is None and moodle_index is None:
+                result.remove((muesli_name, moodle_name, student))
+
+    return [student for _, _, student in result]

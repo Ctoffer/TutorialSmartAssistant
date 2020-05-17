@@ -23,10 +23,11 @@ class MuesliSession:
         result = 'offline'
         if self._session is not None:
             response = self._session.get(self._test_url)
-            if response.status_code == 200:
-                result = 'online'
-            elif response.status_code == 302:
+
+            if 302 in response.history or response.status_code == 302:
                 result = 'login required'
+            elif response.status_code == 200:
+                result = 'online'
             else:
                 result = 'offline'
         return result

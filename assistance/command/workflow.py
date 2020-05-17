@@ -3,6 +3,7 @@ import re
 import shutil
 from json import dump as json_save
 
+from assistance.command.info import select_student_by_name
 from util.console import single_choice
 
 
@@ -161,13 +162,9 @@ class WorkflowUnzipCommand:
 
             students = list()
             for student_name in student_names:
-                possible_students = self._storage.get_students_by_name(student_name)
-                if len(possible_students) == 0:
-                    self.printer.warning(f"Did not find a student matching '{student_name}'.")
-                elif len(possible_students) == 1:
-                    students.append(possible_students[0])
-                else:
-                    self.printer.warning(f"Found more then one possible student for '{student_name}'")
+                student = select_student_by_name(student_name, self._storage, self.printer, students.append, mode='my')
+                if student is None:
+                    self.printer.error(f"Did not find a match for '{student_name}'")
 
             student_names = sorted([student.muesli_name.replace(' ', '-') for student in students])
             if len(student_names) < 2:
