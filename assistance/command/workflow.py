@@ -165,8 +165,15 @@ class WorkflowUnzipCommand:
                 student = select_student_by_name(student_name, self._storage, self.printer, students.append, mode='my')
                 if student is None:
                     self.printer.error(f"Did not find a match for '{student_name}'")
+                    self.printer.inform("Manual correction needed.")
+                    student = self._select_student()
 
-            student_names = sorted([student.muesli_name.replace(' ', '-') for student in students])
+                    if student is not None:
+                        students.append(student)
+                    else:
+                        self.printer.error("Manuel correction failed!")
+
+            student_names = sorted([student.muesli_name.replace('  ', ' ').replace(' ', '-') for student in students])
             if len(student_names) < 2:
                 problems.append("Submission groups should consist at least of 2 members!")
             if 3 < len(student_names):
@@ -204,22 +211,28 @@ class WorkflowUnzipCommand:
 
         return result, problems
 
-    def _select_student(self):
+    def _select_student(self, return_name=True):
         name = self.printer.input(">: ")
+
         if len(name) == 0:
-            return None
-
-        possible_students = self._storage.get_students_by_name(name, mode='my')
-        if len(possible_students) == 1:
-            return possible_students[0].muesli_name
-
-        elif len(possible_students) == 0:
-            self.printer.warning("No match found")
-            return None
-
+            result = None
         else:
-            index = single_choice("Please select correct student", possible_students, self.printer)
-            return possible_students[index].muesli_name
+            possible_students = self._storage.get_students_by_name(name, mode='my')
+            if len(possible_students) == 1:
+                result = possible_students[0]
+
+            elif len(possible_students) == 0:
+                self.printer.warning("No match found")
+                result = None
+
+            else:
+                index = single_choice("Please select correct student", possible_students, self.printer)
+                result = possible_students[index]
+
+        if return_name and result is not None:
+            return result.muesli_name
+        else:
+            return result
 
 
 class WorkflowPrepareCommand:
@@ -264,17 +277,25 @@ class WorkflowPrepareCommand:
                 self.printer.error(f"The data for exercise {exercise_number} was not preprocessed. "
                                    f"Run workflow.unzip first.")
 
+            can_generate_feedback = False
             if not self._storage.has_exercise_meta(exercise_number):
                 self.printer.inform("Meta data for exercise not found. Syncing from MÜSLI ... ", end='')
-                self._storage.update_exercise_meta(self._muesli, exercise_number)
-                self.printer.confirm("[OK]")
+                try:
+                    self._storage.update_exercise_meta(self._muesli, exercise_number)
+                    can_generate_feedback = True
+                    self.printer.confirm("[OK]")
+                except TypeError:
+                    self.printer.error("[Err]")
+                    self.printer.error("No credit stats found for this exercise.")
+            else:
+                can_generate_feedback = True
 
             for directory in os.listdir(preprocessed_folder):
                 src_directory = os.path.join(preprocessed_folder, directory)
                 target_directory = os.path.join(working_folder, directory)
                 if not os.path.exists(target_directory):
                     shutil.copytree(src_directory, target_directory)
-                if os.path.isdir(target_directory):
+                if can_generate_feedback and os.path.isdir(target_directory):
                     self._storage.generate_feedback_template(exercise_number, target_directory, self.printer)
         except ValueError:
             self.printer.error(f"Exercise number must be an integer, not '{args[0]}'")
