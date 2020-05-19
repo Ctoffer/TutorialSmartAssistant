@@ -161,25 +161,35 @@ class WorkflowUnzipCommand:
                     student_names.append(student_name)
 
             students = list()
+            needed_manual_help = False
             for student_name in student_names:
                 student = select_student_by_name(student_name, self._storage, self.printer, students.append, mode='my')
                 if student is None:
                     self.printer.error(f"Did not find a match for '{student_name}'")
-                    self.printer.inform("Manual correction needed.")
-                    student = self._select_student()
+                    self.printer.error("Increasing scope ... ")
+                    student = select_student_by_name(student_name, self._storage, self.printer, students.append,
+                                                     mode='all')
+                    if student is not None:
+                        self.printer.inform(f"Found the student - consider to import '{student_name}'")
+                    else:
+                        needed_manual_help = True
+                        self.printer.inform("No match found in extended scope - manual correction needed.")
+                        student = self._select_student(mode='all', return_name=False)
 
                     if student is not None:
                         students.append(student)
                     else:
-                        self.printer.error("Manuel correction failed!")
+                        self.printer.error("Manual correction failed!")
 
-            student_names = sorted([student.muesli_name.replace('  ', ' ').replace(' ', '-') for student in students])
+            student_names = sorted([(student if type(student) == str else student.muesli_name).replace('  ', ' ').replace(' ', '-') for student in students])
             if len(student_names) < 2:
                 problems.append("Submission groups should consist at least of 2 members!")
             if 3 < len(student_names):
                 problems.append("Submission groups should consist at most of 3 members!")
 
             result = '_'.join(student_names) + correct_file_name_end
+            if needed_manual_help:
+                problems.append(f"Please use the correct file format! For this submission it would have been '{result}.zip'")
         else:
             problem = "Fatal: Wrong naming detected - manuel correction needed."
             problems.append(problem)
@@ -211,13 +221,13 @@ class WorkflowUnzipCommand:
 
         return result, problems
 
-    def _select_student(self, return_name=True):
+    def _select_student(self, return_name=True, mode='my'):
         name = self.printer.input(">: ")
 
         if len(name) == 0:
             result = None
         else:
-            possible_students = self._storage.get_students_by_name(name, mode='my')
+            possible_students = self._storage.get_students_by_name(name, mode=mode)
             if len(possible_students) == 1:
                 result = possible_students[0]
 
