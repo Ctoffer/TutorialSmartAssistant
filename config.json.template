@@ -23,7 +23,7 @@
   },
   "moodle": {
     "course_id": "2239",
-    "student_role": "Teilnehmer/in"
+    "student_role": "Teilnehmer/in",
     "exercise_prefix": "Übung "
   }
 }
