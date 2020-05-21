@@ -18,7 +18,11 @@
       "exercise_title": "Feedback zu Übung ",
       "task_prefix": "Aufgabe ",
       "show_problems": true,
-      "default_answer": "Keine Kommentar - also war wohl alles richtig."
+      "default_answer": "Kein Kommentar - also war wohl alles richtig."
+    },
+    "presentation":{
+      "supports_presentations": true,
+      "name": "Vorrechnen in der Übungsgruppe"
     }
   },
   "moodle": {
