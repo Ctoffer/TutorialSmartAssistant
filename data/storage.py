@@ -523,10 +523,14 @@ class InteractiveDataStorage:
         lines.append('')
 
         if self.muesli_data.feedback.show_problems:
-            lines.append("Mit der Namensgebung der Datei gab es Probleme:")
-            for problem in submission_data.problems:
-                lines.append("  ■ " + problem)
-            lines.append("")
+            if len(submission_data.problems) > 0:
+                lines.append("Mit der Namensgebung der Datei gab es Probleme:")
+                for problem in submission_data.problems:
+                    lines.append("  ■ " + problem)
+                lines.append("")
+            else:
+                lines.append("Die Benennung der war korrekt.")
+                lines.append("")
 
         for task_name, max_credits in template_data.max_credits:
             max_credits = f'[Max: {max_credits}]'
