@@ -203,7 +203,7 @@ class MuesliSession:
     def set_scores_of(self, tutorial_id, exam_id, scores):
         raise NotImplementedError("Not implemented yet!")
 
-    def update_presented(self, student, present_name, printer):
+    def update_presented(self, student, present_name):
         tutorial_id = student.tutorial_id
         if tutorial_id in self._present_urls:
             present_url = self._present_urls[tutorial_id]
@@ -213,8 +213,6 @@ class MuesliSession:
             present_id = soup.find('a', text=f"{present_name}")['href'].split("/")[-2]
             present_url = f"https://muesli.mathi.uni-heidelberg.de/exam/enter_points/{present_id}/{tutorial_id}"
             self._present_urls[tutorial_id] = present_url
-
-        printer.inform(f"Present Url: {present_url}")
 
         response = self._session.get(present_url)
         soup = BeautifulSoup(response.content, "html.parser")
@@ -238,7 +236,4 @@ class MuesliSession:
         data[input_points['name']] = 1
         response = self._session.post(present_url, data=data)
 
-        if response.status_code == 200:
-            printer.confirm(f"MÜSLI: {student} has presented")
-        else:
-            printer.error("MÜSLI: Some error occurred. Please check connection state.")
+        return response.status_code == 200

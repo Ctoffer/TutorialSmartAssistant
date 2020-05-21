@@ -46,4 +46,7 @@ class PresentCommand:
             )
 
     def _update_presented_in_muesli(self, student):
-        self._muesli.update_presented(student, self._storage.muesli_data.presentation.name, self.printer)
+        if self._muesli.update_presented(student, self._storage.muesli_data.presentation.name):
+            self.printer.confirm(f"MÜSLI: {student} has presented")
+        else:
+            self.printer.error("MÜSLI: Some error occurred. Please check connection state.")
