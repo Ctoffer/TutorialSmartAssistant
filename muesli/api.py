@@ -10,6 +10,7 @@ class MuesliSession:
         self._account = account
         self._logout_url = None
         self._test_url = 'https://muesli.mathi.uni-heidelberg.de/start'
+        self._present_urls = dict()
 
     @property
     def name(self):
@@ -44,7 +45,7 @@ class MuesliSession:
             'password': self._account.password
         })
         soup = BeautifulSoup(response.content, 'html.parser')
-        error_element = soup.find('p', attrs={'class':'error'})
+        error_element = soup.find('p', attrs={'class': 'error'})
         if error_element is not None:
             raise ConnectionRefusedError('Wrong username or password.')
 
@@ -189,7 +190,8 @@ class MuesliSession:
         return soup.find('a', text=f"{exercise_prefix}{exercise_number}")['href'].split("/")[-2]
 
     def get_max_credits_of(self, tutorial_id, exercise_id):
-        response = self._session.get(f"https://muesli.mathi.uni-heidelberg.de/exam/statistics/{exercise_id}/{tutorial_id}")
+        response = self._session.get(
+            f"https://muesli.mathi.uni-heidelberg.de/exam/statistics/{exercise_id}/{tutorial_id}")
         soup = BeautifulSoup(response.content, "html.parser")
         columns = soup.find('table').find_all('tr')[-1].find_all('td')[1:-1]
         max_credits = [float(column.text) for column in columns]
@@ -200,3 +202,43 @@ class MuesliSession:
 
     def set_scores_of(self, tutorial_id, exam_id, scores):
         raise NotImplementedError("Not implemented yet!")
+
+    def update_presented(self, student, present_name, printer):
+        tutorial_id = student.tutorial_id
+        if tutorial_id in self._present_urls:
+            present_url = self._present_urls[tutorial_id]
+        else:
+            response = self._session.get(f'https://muesli.mathi.uni-heidelberg.de/tutorial/view/{tutorial_id}')
+            soup = BeautifulSoup(response.content, "html.parser")
+            present_id = soup.find('a', text=f"{present_name}")['href'].split("/")[-2]
+            present_url = f"https://muesli.mathi.uni-heidelberg.de/exam/enter_points/{present_id}/{tutorial_id}"
+            self._present_urls[tutorial_id] = present_url
+
+        printer.inform(f"Present Url: {present_url}")
+
+        response = self._session.get(present_url)
+        soup = BeautifulSoup(response.content, "html.parser")
+        table = soup.find("table", attrs={'class': 'colored'})
+        table_row = table.find('tr', attrs={'id': f'row-{student.muesli_student_id}'})
+        data = dict()
+        rows = table.find_all('tr')
+        for row in rows[1:-5]:
+            columns = row.find_all('td')
+            if len(columns) > 0:
+                input_score = columns[1].find('input')
+                name = input_score['name']
+                try:
+                    value = float(input_score['value'])
+                except KeyError:
+                    value = ''
+                data[name] = value
+        input_points = table_row.find_all('td')[1].find('input', attrs={'class': 'points', 'type': 'text'})
+
+        data['submit'] = 1
+        data[input_points['name']] = 1
+        response = self._session.post(present_url, data=data)
+
+        if response.status_code == 200:
+            printer.confirm(f"MÜSLI: {student} has presented")
+        else:
+            printer.error("MÜSLI: Some error occurred. Please check connection state.")

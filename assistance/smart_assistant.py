@@ -2,6 +2,7 @@ from assistance.command.connection import ConnectionCommand
 from assistance.command.crossover import ImportCommand, ExportCommand
 from assistance.command.help import HelpCommand
 from assistance.command.info import InfoCommand
+from assistance.command.present import PresentCommand
 from assistance.command.stop import StopCommand
 from assistance.command.workflow import WorkflowDownloadCommand, WorkflowUnzipCommand, WorkflowPrepareCommand
 from assistance.commands import CommandRegister, parse_command, normalize_string
@@ -32,6 +33,7 @@ class SmartAssistant:
         self._command_register.register_command(WorkflowPrepareCommand(self._printer, self._storage, self._muesli))
         self._command_register.register_command(ImportCommand(self._printer, self._storage))
         self._command_register.register_command(ExportCommand(self._printer, self._storage))
+        self._command_register.register_command(PresentCommand(self._printer, self._storage, self._muesli))
 
     def _initialize_connections(self):
         self._print_header("Initializing Connections")
