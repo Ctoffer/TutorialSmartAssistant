@@ -83,6 +83,7 @@ class Student:
     def muesli_data(self):
         return {
             "Tutorial-Id": self.tutorial_id,
+            "Tutorial": "-",
             "Id": self.muesli_student_id,
             "Name": self.muesli_name,
             "E-Mail": self.muesli_mail,

@@ -118,6 +118,30 @@ class PhysicalDataStorage:
 
         return result
 
+    def save_presented_scores(self, presented_score):
+        directory = ensure_folder_exists(p_join(self._meta_path, "students"))
+        path = p_join(directory, "presented_information.json")
+        with open(path, 'w') as fp:
+            j_dump(presented_score, fp, indent=4)
+
+    def load_presented_scores(self):
+        directory = ensure_folder_exists(p_join(self._meta_path, "students"))
+        path = p_join(directory, "presented_information.json")
+        result = dict(), "Missing"
+
+        if os.path.exists(path):
+            with open(path, 'r') as fp:
+                data = j_load(fp)
+                presented_scores = defaultdict(dict)
+                for outer_key, outer_value in data.items():
+                    for inner_key, inner_value in outer_value.items():
+                        presented_scores[int(outer_key)][int(inner_key)] = inner_value
+
+                presented_scores = dict(presented_scores)
+                result = presented_scores, "Loaded"
+
+        return result
+
 
 class InteractiveDataStorage:
     __instance = None
@@ -148,6 +172,7 @@ class InteractiveDataStorage:
         self._init_tutorials(muesli)
         self._init_students(muesli)
         self._init_moodle_attributes(moodle)
+        self._init_presented_scores(muesli)
 
         self.__instance.imported_students = self.physical_storage.load_exchanged_students('imported')
         self.__instance.exported_students = self.physical_storage.load_exchanged_students('exported')
@@ -252,6 +277,31 @@ class InteractiveDataStorage:
                     print(f"[ERR] (InteractiveDataStorage: {e})")
 
                 sleep(2)
+
+    def _init_presented_scores(self, muesli: MuesliSession):
+        print(f"Is presenting supported ...", end='')
+        if self.muesli_data.presentation.supports_presentations:
+            print("[YES]")
+            print(f"Load presented information ...", end='')
+            presented_score, state = self.physical_storage.load_presented_scores()
+            self._presented_score = presented_score
+            print(f'[{state}]')
+
+            if state == "Missing":
+                for tutorial_id in self.tutorials.keys():
+                    try:
+                        print(f"Downloading presented information from MÜSLI ({tutorial_id})...", end='')
+                        data = muesli.get_presented_table(self.muesli_data.presentation.name, tutorial_id)
+                        self._presented_score[tutorial_id] = data
+                        print("[OK]")
+                    except BaseException as e:
+                        print(f"[ERR] (InteractiveDataStorage: {e})")
+
+                    sleep(1)
+
+                self.physical_storage.save_presented_scores(self._presented_score)
+        else:
+            print("[NO]")
 
     def _init_moodle_attributes(self, moodle: MoodleSession):
         all_students = self.all_students
@@ -409,6 +459,13 @@ class InteractiveDataStorage:
         result = match_student(name, all_students)
 
         return list(result)
+
+    def has_presented(self, student):
+        return self._presented_score[student.tutorial_id][student.muesli_student_id]
+
+    def set_presented_for(self, student):
+        self._presented_score[student.tutorial_id][student.muesli_student_id] = True
+        self.physical_storage.save_presented_scores(self._presented_score)
 
     def get_all_tutorials_of_tutor(self, tutor):
         return [tutorial for tutorial in self.tutorials.values() if tutorial.tutor == tutor]

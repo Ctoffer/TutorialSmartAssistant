@@ -52,10 +52,25 @@ class ConsoleFormatter:
         self.outdent()
 
 
-def print_header(title, printer, length=120, orientation='^'):
-    printer.inform('╔' + '═' * length + '╗')
-    printer.inform(('║{:' + f'{orientation}{length}' + '}║').format(title))
-    printer.inform('╚' + '═' * length + '╝')
+def string_framed_line(title, length=120, orientation='^', style='-'):
+    lines = list()
+    length -= 2
+    if style == '=':
+        lines.append('╔' + '═' * length + '╗')
+        lines.append(('║ {:' + f'{orientation}{length - 2}' + '} ║').format(title))
+        lines.append('╚' + '═' * length + '╝')
+    elif style == '-':
+        lines.append('┌' + '─' * length + '┐')
+        lines.append(('│ {:' + f'{orientation}{length - 2}' + '} │').format(title))
+        lines.append('└' + '─' * length + '┘')
+    else:
+        raise ValueError(f"Unknown frame style '{style}' (console.py: string_framed_line)")
+    return lines
+
+
+def print_header(title, printer, length=122, orientation='^'):
+    for line in string_framed_line(title, length, orientation, style='='):
+        printer.inform(line)
 
 
 def string_card(title, entries, length=60, title_orientation='<'):
@@ -71,7 +86,7 @@ def string_card(title, entries, length=60, title_orientation='<'):
     lines.append(('│ {:' + f'{title_orientation}{length - 4}' + '} │').format(title))
     lines.append('├' + '─' * (length - 2) + '┤')
 
-    entries = {normalize_entry(k, 32): v for k,v in entries.items()}
+    entries = {normalize_entry(k, 32): v for k, v in entries.items()}
 
     longest_entry_name = max([len(str(_)) for _ in entries])
     space_for_entry_content = length - 2 - longest_entry_name - 2 - 2
@@ -101,6 +116,25 @@ def align_horizontal(lines_left: list, lines_right, space_size=0):
         right_word = get_or_else(lines_right, i)
         format_string = f'{{:<{longest_word_left}}}{{}}{{:>{longest_word_right}}}'
         result.append(format_string.format(left_word, space, right_word))
+
+    return result
+
+
+def align_vertical(lines_top: list, lines_bottom, space_size=0):
+    result = list()
+    longest_word_top = max([len(_) for _ in lines_top])
+    longest_word_bottom = max([len(_) for _ in lines_bottom])
+    longest_word = max(longest_word_top, longest_word_bottom)
+
+    format_string = f'{{:<{longest_word}}}'
+    for line in lines_top:
+        result.append(format_string.format(line))
+
+    for _ in range(space_size):
+        result.append(" " * longest_word)
+
+    for line in lines_bottom:
+        result.append(format_string.format(line))
 
     return result
 

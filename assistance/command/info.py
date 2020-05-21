@@ -2,7 +2,7 @@ from assistance.commands import normalize_string
 from data.data import Student
 from data.storage import InteractiveDataStorage
 from util.collection import group
-from util.console import single_choice, print_header, string_card, align_horizontal
+from util.console import single_choice, print_header, string_card, align_horizontal, string_framed_line, align_vertical
 
 
 class InfoCommand:
@@ -68,8 +68,17 @@ class InfoCommand:
     def _print_student_info_card(self, student: Student):
         print_header(f'{student.muesli_name} (aka {student.alias})', self.printer)
 
-        muesli_card = string_card('Data from MÜSLI', student.muesli_data)
+        muesli_data = student.muesli_data
+        tutorial = self._storage.get_tutorial_by_id(student.tutorial_id)
+        muesli_data['Tutorial'] = f'{tutorial.time} ({tutorial.tutor})'
+        muesli_card = string_card('Data from MÜSLI', muesli_data)
         moodle_card = string_card('Data from Moodle', student.moodle_data)
+        if self._storage.muesli_data.presentation.supports_presentations:
+            has_presented = self._storage.has_presented(student)
+            answer = 'Ja' if has_presented else 'Nein'
+            bottom_card = string_framed_line(f"Vorgerechnet: {answer}", length=60, orientation='<')
+            moodle_card = align_vertical(moodle_card, bottom_card)
+
         lines = align_horizontal(muesli_card, moodle_card, space_size=2)
 
         for line in lines:

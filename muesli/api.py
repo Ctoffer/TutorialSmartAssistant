@@ -205,14 +205,7 @@ class MuesliSession:
 
     def update_presented(self, student, present_name):
         tutorial_id = student.tutorial_id
-        if tutorial_id in self._present_urls:
-            present_url = self._present_urls[tutorial_id]
-        else:
-            response = self._session.get(f'https://muesli.mathi.uni-heidelberg.de/tutorial/view/{tutorial_id}')
-            soup = BeautifulSoup(response.content, "html.parser")
-            present_id = soup.find('a', text=f"{present_name}")['href'].split("/")[-2]
-            present_url = f"https://muesli.mathi.uni-heidelberg.de/exam/enter_points/{present_id}/{tutorial_id}"
-            self._present_urls[tutorial_id] = present_url
+        present_url = self._get_presented_url(present_name, tutorial_id)
 
         response = self._session.get(present_url)
         soup = BeautifulSoup(response.content, "html.parser")
@@ -237,3 +230,39 @@ class MuesliSession:
         response = self._session.post(present_url, data=data)
 
         return response.status_code == 200
+
+    def _get_presented_url(self, present_name, tutorial_id):
+        if tutorial_id in self._present_urls:
+            present_url = self._present_urls[tutorial_id]
+        else:
+            response = self._session.get(f'https://muesli.mathi.uni-heidelberg.de/tutorial/view/{tutorial_id}')
+            soup = BeautifulSoup(response.content, "html.parser")
+            present_id = soup.find('a', text=f"{present_name}")['href'].split("/")[-2]
+            present_url = f"https://muesli.mathi.uni-heidelberg.de/exam/enter_points/{present_id}/{tutorial_id}"
+            self._present_urls[tutorial_id] = present_url
+
+        return present_url
+
+    def get_presented_table(self, present_name, tutorial_id):
+        present_url = self._get_presented_url(present_name, tutorial_id)
+        response = self._session.get(present_url)
+        soup = BeautifulSoup(response.content, "html.parser")
+        table = soup.find("table", attrs={'class': 'colored'})
+        data = dict()
+        rows = table.find_all('tr')
+        for row in rows[1:-5]:
+            muesli_student_id = int(row['id'].split('-')[1])
+            columns = row.find_all('td')
+            input_score = columns[1].find('input')
+
+            try:
+                value = float(input_score['value'])
+                if value > 0.0:
+                    value = True
+                else:
+                    value = False
+            except KeyError:
+                value = False
+            data[muesli_student_id] = value
+
+        return data
