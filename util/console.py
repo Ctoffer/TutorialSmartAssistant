@@ -44,6 +44,11 @@ class ConsoleFormatter:
     def input(self, message=""):
         return input(f"{self.indentation}{message}")
 
+    def ask(self, question):
+        self.inform(question)
+        answer = self.input(">: ")
+        return answer
+
     def __enter__(self):
         self.indent()
         return self

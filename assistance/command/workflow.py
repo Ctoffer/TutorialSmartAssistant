@@ -123,6 +123,8 @@ class WorkflowUnzipCommand:
                     except shutil.ReadError:
                         self.printer.error(f"Not supported archive-format: '{extension}'")
 
+                    self.printer.inform("─" * 100)
+
         except ValueError:
             self.printer.error(f"Exercise number must be an integer, not '{args[0]}'")
 
@@ -130,6 +132,38 @@ class WorkflowUnzipCommand:
         problems = list()
         correct_file_name_end = f'_ex{exercise_number:02d}'
 
+        file_name = self._suffix_check(
+            exercise_number,
+            file_name,
+            problems,
+            correct_file_name_end
+        )
+
+        file_name = file_name[:-len(correct_file_name_end)]
+        self.printer.inform(f"Finding students of '{file_name}'.")
+        hyphen_score = file_name.count('-')
+        underscore_score = file_name.count('_')
+        student_names = list()
+
+        if hyphen_score - 1 == underscore_score:
+            result = self._possible_correct_naming(
+                file_name,
+                student_names,
+                problems,
+                correct_file_name_end
+            )
+        else:
+            result = self._definitely_not_correct_naming(
+                file_name,
+                student_names,
+                problems,
+                correct_file_name_end
+            )
+
+        return result, problems
+
+    def _suffix_check(self, exercise_number, file_name, problems, correct_file_name_end):
+        self.printer.inform("Checking file name suffix.")
         if file_name.endswith(f"-ex{exercise_number:02d}") or file_name.endswith(f"-ex{exercise_number:}"):
             problems.append(f"Used '-' instead of '_' to mark end of filename. Please use '{correct_file_name_end}'")
             file_name = file_name.replace(f'-ex{exercise_number:02d}', correct_file_name_end) \
@@ -143,86 +177,115 @@ class WorkflowUnzipCommand:
             problems.append(f"Filename does not end with required '{correct_file_name_end}'.")
             file_name += f"_ex{exercise_number:02d}"
 
-        file_name = file_name[:-len(correct_file_name_end)]
-        hyphen_score = file_name.count('-')
-        underscore_score = file_name.count('_')
-        student_names = list()
+        return file_name
 
-        if hyphen_score - 1 == underscore_score:
-            student_names = list()
-            for student_name in file_name.split("_"):
-                parts = re.findall(r'[A-Z](?:[a-z]+|[A-Z]*(?=[A-Z]|$))', student_name)
-                if len(parts) > 0:
-                    student_name = ("-".join(parts))
+    def _possible_correct_naming(self, file_name, student_names, problems, correct_file_name_end):
+        for student_name in file_name.split("_"):
+            parts = re.findall(r'[A-Z](?:[a-z]+|[A-Z]*(?=[A-Z]|$))', student_name)
+            if len(parts) > 0:
+                student_name = ("-".join(parts))
 
-                student_name = student_name.split("-")
-                student_name = " ".join(student_name)
-                if len(student_name) > 0:
-                    student_names.append(student_name)
+            student_name = student_name.split("-")
+            student_name = " ".join(student_name)
+            if len(student_name) > 0:
+                student_names.append(student_name)
 
-            students = list()
-            needed_manual_help = False
-            for student_name in student_names:
-                student = select_student_by_name(student_name, self._storage, self.printer, students.append, mode='my')
-                if student is None:
-                    self.printer.error(f"Did not find a match for '{student_name}'")
-                    self.printer.error("Increasing scope ... ")
-                    student = select_student_by_name(student_name, self._storage, self.printer, students.append,
-                                                     mode='all')
-                    if student is not None:
-                        self.printer.inform(f"Found the student - consider to import '{student_name}'")
-                    else:
-                        needed_manual_help = True
-                        self.printer.inform("No match found in extended scope - manual correction needed.")
-                        student = self._select_student(mode='all', return_name=False)
+        students = list()
+        needed_manual_help = False
+        for student_name in student_names:
+            student = select_student_by_name(student_name, self._storage, self.printer, students.append, mode='my')
+            if student is None:
+                self.printer.error(f"Some error happened processing '{file_name}'")
+                self.printer.error(f"Did not find a match for '{student_name}'")
+                self.printer.error("Increasing scope ... ")
+                student = select_student_by_name(student_name, self._storage, self.printer, students.append,
+                                                 mode='all')
+                if student is not None:
+                    self.printer.inform(f"Found the student - consider to import '{student_name}'")
+                else:
+                    needed_manual_help = True
+                    student = self._manual_student_selection()
 
-                    if student is not None:
-                        students.append(student)
-                    else:
-                        self.printer.error("Manual correction failed!")
+                if student is not None:
+                    students.append(student)
+                else:
+                    self.printer.error("Manual correction failed!")
+        student_names = []
 
-            student_names = sorted([(student if type(student) == str else student.muesli_name).replace('  ', ' ').replace(' ', '-') for student in students])
-            if len(student_names) < 2:
-                problems.append("Submission groups should consist at least of 2 members!")
-            if 3 < len(student_names):
-                problems.append("Submission groups should consist at most of 3 members!")
+        def to_name(s):
+            if type(s) == str:
+                return s
+            else:
+                return s.muesli_name
 
-            result = '_'.join(student_names) + correct_file_name_end
-            if needed_manual_help:
-                problems.append(f"Please use the correct file format! For this submission it would have been '{result}.zip'")
-        else:
-            problem = "Fatal: Wrong naming detected - manuel correction needed."
-            problems.append(problem)
-            self.printer.error(problem)
-            self.printer.error(file_name)
-            self.printer.inform()
-            self.printer.inform("Please enter the names you can read in the file name.")
+        for student_name in sorted([to_name(student) for student in students]):
+            name_parts = [_ for _ in student_name.split() if len(_) > 0]
+            student_names.append(f'{name_parts[0].replace("-", "")}-{name_parts[-1].replace("-", "")}')
 
-            student = self._select_student()
+        if len(student_names) < 2:
+            problems.append("Submission groups should consist at least of 2 members!")
+        if 3 < len(student_names):
+            problems.append("Submission groups should consist at most of 3 members!")
+
+        result = '_'.join(student_names) + correct_file_name_end
+        if needed_manual_help:
+            problems.append(
+                f"Please use the correct file format! For this submission it would have been '{result}.zip'"
+            )
+
+        return result
+
+    def _manual_student_selection(self):
+        self.printer.inform("No match found in extended scope - manual correction needed.")
+        student = self._select_student(mode='all', return_name=False)
+        if student is None:
+            self.printer.inform("No student found with entered name. Please try only a name part.")
+            student = self._select_student(mode='all', return_name=False)
+
+        while student is None and self.printer.ask("Do you want to try again? (y/n)") == 'y':
+            self.printer.inform("No student found with entered name. Please try only a name part.")
+            student = self._select_student(mode='all', return_name=False)
+
+        return student
+
+    def _definitely_not_correct_naming(self, file_name, student_names, problems, correct_file_name_end):
+        problem = "Fatal: Wrong naming detected - manual correction needed."
+        problems.append(problem)
+        self.printer.error(problem)
+        self.printer.error(file_name)
+        self.printer.inform()
+        self.printer.inform("Please enter the names you can read in the file name separated with ','.")
+
+        names = self.printer.input(">: ")
+        for name in names.split(','):
+            student = self._select_student(name=name)
             if student is not None:
                 student_names.append(student)
-            while self.printer.input("   Are there more students? (y/n): ") == 'y':
-                student = self._select_student()
-                if student is not None:
-                    student_names.append(student)
+            else:
+                while student is None:
+                    self.printer.warning(f"Did not find a student with name '{name}'.")
+                    self.printer.inform("Please try again.")
+                    student = self._select_student()
+                student_names.append(student)
 
-            result = []
-            for student_name in sorted(student_names):
-                name_parts = [_ for _ in student_name.split() if len(_) > 0]
-                result.append(f'{name_parts[0].replace("-", "")}-{name_parts[-1].replace("-", "")}')
+        result = []
+        for student_name in sorted(student_names):
+            name_parts = [_ for _ in student_name.split() if len(_) > 0]
+            result.append(f'{name_parts[0].replace("-", "")}-{name_parts[-1].replace("-", "")}')
 
-            if len(result) < 2:
-                problems.append("Submission groups should consist at least of 2 members!")
-            if 3 < len(result):
-                problems.append("Submission groups should consist at most of 3 members!")
+        if len(result) < 2:
+            problems.append("Submission groups should consist at least of 2 members!")
+        if 3 < len(result):
+            problems.append("Submission groups should consist at most of 3 members!")
 
-            result = '_'.join(result) + correct_file_name_end
-            problems.append(f"Please use the correct file format! For this submission it would have been '{result}.zip'")
+        result = '_'.join(result) + correct_file_name_end
+        problems.append(f"Please use the correct file format! For this submission it would have been '{result}.zip'")
 
-        return result, problems
+        return result
 
-    def _select_student(self, return_name=True, mode='my'):
-        name = self.printer.input(">: ")
+    def _select_student(self, return_name=True, mode='my', name=None):
+        if name is None:
+            name = self.printer.input(">: ")
 
         if len(name) == 0:
             result = None

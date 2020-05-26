@@ -4,7 +4,7 @@
     "submission_root": "Übungsblätter",
     "exercise_template": "Übungsblatt_",
     "exercise_folder": "01_Aufgabe",
-    "raw_folder": "02_Orginal",
+    "raw_folder": "02_Original",
     "preprocessed_folder": "03_Entpackt",
     "working_folder": "04_Korrektur",
     "finished_folder": "05_Fertig"
