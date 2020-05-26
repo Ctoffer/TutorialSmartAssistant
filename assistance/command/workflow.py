@@ -181,7 +181,7 @@ class WorkflowUnzipCommand:
 
     def _possible_correct_naming(self, file_name, student_names, problems, correct_file_name_end):
         for student_name in file_name.split("_"):
-            parts = re.findall(r'[A-Z](?:[a-z]+|[A-Z]*(?=[A-Z]|$))', student_name)
+            parts = re.findall(r'[A-Z](?:[a-zöäüß]+|[A-Z]*(?=[A-Z]|$))', student_name)
             if len(parts) > 0:
                 student_name = ("-".join(parts))
 
@@ -206,10 +206,10 @@ class WorkflowUnzipCommand:
                     needed_manual_help = True
                     student = self._manual_student_selection()
 
-                if student is not None:
-                    students.append(student)
-                else:
-                    self.printer.error("Manual correction failed!")
+                    if student is not None:
+                        students.append(student)
+                    else:
+                        self.printer.error("Manual correction failed!")
         student_names = []
 
         def to_name(s):
