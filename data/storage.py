@@ -605,7 +605,7 @@ class InteractiveDataStorage:
                     lines.append("  ■ " + problem)
                 lines.append("")
             else:
-                lines.append("Die Benennung der war korrekt.")
+                lines.append("Die Benennung der Abgabedatei war korrekt.")
                 lines.append("")
 
         for task_name, max_credits in template_data.max_credits:
