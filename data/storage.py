@@ -460,6 +460,19 @@ class InteractiveDataStorage:
 
         return list(result)
 
+    def get_student_by_muesli_id(self, muesli_id):
+        result = None
+        for student in self.all_students:
+            if student.muesli_student_id == muesli_id:
+                result = student
+                break
+
+        if result is None:
+            location = "(storage.py: get_student_by_muesli_id)"
+            raise ValueError(f"There is no student with the MÜSLI-Id {muesli_id} {location}")
+
+        return result
+
     def has_presented(self, student):
         return self._presented_score[student.tutorial_id][student.muesli_student_id]
 
@@ -536,6 +549,12 @@ class InteractiveDataStorage:
         return os.path.join(
             self.get_exercise_folder(exercise_number),
             self.storage_config.working_folder
+        )
+
+    def get_finished_folder(self, exercise_number):
+        return os.path.join(
+            self.get_exercise_folder(exercise_number),
+            self.storage_config.finished_folder
         )
 
     def update_exercise_meta(self, muesli, exercise_number):
@@ -628,7 +647,8 @@ def match_student(input_name, list_of_students):
             processed_name = processed_name.replace('ü', 'ue')
             processed_name = processed_name.replace('ß', 'ss')
             processed_name = strip_accents(processed_name)
-            processed_name = processed_name.split()
+            processed_name = [part.split('-') for part in processed_name.split()]
+            processed_name = [part for chunk in processed_name for part in chunk]
             return processed_name
 
     for student in list_of_students:

@@ -125,13 +125,13 @@ def align_horizontal(lines_left: list, lines_right, space_size=0):
     return result
 
 
-def align_vertical(lines_top: list, lines_bottom, space_size=0):
+def align_vertical(lines_top: list, lines_bottom, space_size=0, alignment='<'):
     result = list()
     longest_word_top = max([len(_) for _ in lines_top])
     longest_word_bottom = max([len(_) for _ in lines_bottom])
     longest_word = max(longest_word_top, longest_word_bottom)
 
-    format_string = f'{{:<{longest_word}}}'
+    format_string = f'{{:{alignment}{longest_word}}}'
     for line in lines_top:
         result.append(format_string.format(line))
 

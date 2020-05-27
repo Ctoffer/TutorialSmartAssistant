@@ -1,10 +1,15 @@
 import os
 import re
 import shutil
+from collections import defaultdict
 from json import dump as json_save
+from json import load as j_load
+from os.path import join as p_join
+from types import SimpleNamespace
 
 from assistance.command.info import select_student_by_name
 from util.console import single_choice
+from util.feedback import FeedbackPolisher
 
 
 class WorkflowDownloadCommand:
@@ -372,3 +377,119 @@ class WorkflowPrepareCommand:
                     self._storage.generate_feedback_template(exercise_number, target_directory, self.printer)
         except ValueError:
             self.printer.error(f"Exercise number must be an integer, not '{args[0]}'")
+
+
+class WorkflowConsolidate:
+    def __init__(self, printer, storage):
+        self.printer = printer
+        self._storage = storage
+
+        self._name = "workflow.consolidate"
+        self._aliases = ("w.cons",)
+        self._min_arg_count = 1
+        self._max_arg_count = 1
+
+    @property
+    def name(self):
+        return self._name
+
+    @property
+    def aliases(self):
+        return self._aliases
+
+    @property
+    def min_arg_count(self):
+        return self._min_arg_count
+
+    @property
+    def max_arg_count(self):
+        return self._max_arg_count
+
+    @property
+    def help(self):
+        return "No help available."
+
+    def __call__(self, *args):
+        exercise_number = int(args[0])
+        working_folder = self._storage.get_working_folder(exercise_number)
+        finished_folder = self._storage.get_finished_folder(exercise_number)
+
+        for directory in os.listdir(working_folder):
+            self.printer.inform()
+            self.printer.inform(f"Working in {directory}")
+            self.printer.inform("Polishing feedback ... ", end='')
+            polisher = FeedbackPolisher(self._storage, p_join(working_folder, directory))
+            self.printer.confirm("[Ok]")
+            self.printer.inform("Saving meta data   ... ", end='')
+            polisher.save_meta_to_folder(p_join(finished_folder, directory))
+            self.printer.confirm("[Ok]")
+
+
+class WorkflowUpload:
+    def __init__(self, printer, storage, muesli):
+        self.printer = printer
+        self._storage = storage
+        self._muesli = muesli
+
+        self._name = "workflow.upload"
+        self._aliases = ("w.up",)
+        self._min_arg_count = 1
+        self._max_arg_count = 1
+
+    @property
+    def name(self):
+        return self._name
+
+    @property
+    def aliases(self):
+        return self._aliases
+
+    @property
+    def min_arg_count(self):
+        return self._min_arg_count
+
+    @property
+    def max_arg_count(self):
+        return self._max_arg_count
+
+    @property
+    def help(self):
+        return "No help available."
+
+    def __call__(self, *args):
+        exercise_number = int(args[0])
+        finished_folder = self._storage.get_finished_folder(exercise_number)
+        meta_file_name = "meta.json"
+
+        data = defaultdict(dict)
+
+        for directory in os.listdir(finished_folder):
+            with open(p_join(finished_folder, directory, meta_file_name), 'r', encoding="utf-8") as fp:
+                meta = SimpleNamespace(**j_load(fp))
+                for muesli_id in meta.muesli_ids:
+                    student = self._storage.get_student_by_muesli_id(muesli_id)
+                    data[student.tutorial_id][muesli_id] = meta.credits_per_task
+
+        for tutorial_id, student_data in data.items():
+            tutorial = self._storage.get_tutorial_by_id(tutorial_id)
+            self.printer.inform(
+                f"Uploading credits to {tutorial.time} for {len(student_data.keys()):>3d} students ... ",
+                end=''
+            )
+            exercise_id = self._muesli.get_exercise_id(
+                tutorial_id,
+                self._storage.muesli_data.exercise_prefix,
+                exercise_number
+            )
+            status, number_of_changes = self._muesli.upload_credits(tutorial_id, exercise_id, student_data)
+
+            if status:
+                self.printer.confirm("[Ok]", end="")
+                self.printer.inform(f" Changed {number_of_changes:>3d} entries.")
+            else:
+                self.printer.error("[Err]")
+                self.printer.error("Please check your connection state.")
+
+
+class WorkflowSendMail:
+    pass

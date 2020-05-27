@@ -1,3 +1,5 @@
+import re
+
 from bs4 import BeautifulSoup
 from requests import Session
 
@@ -266,3 +268,27 @@ class MuesliSession:
             data[muesli_student_id] = value
 
         return data
+
+    def upload_credits(self, tutorial_id, exercise_id, credit_data):
+        credits_url = f"https://muesli.mathi.uni-heidelberg.de/exam/enter_points/{exercise_id}/{tutorial_id}"
+
+        response = self._session.get(credits_url)
+        soup = BeautifulSoup(response.content, "html.parser")
+        table = soup.find("table", attrs={'class': 'colored'})
+        rows = table.find_all('tr', id=re.compile(r'row-\d+'))
+        rows = {row['id']: row for row in rows}
+        data = dict()
+        number_of_changes = 0
+
+        for row_id, row in rows.items():
+            for idx, column in enumerate(row.find_all('input')[:-1]):
+                try:
+                    data[column['name']] = float(column['value'])
+                except KeyError:
+                    data[column['name']] = credit_data.get(int(row_id[4:]), dict()).get(idx, None)
+                    if data[column['name']] is not None:
+                        number_of_changes += 1
+
+        data['submit'] = 1
+        response = self._session.post(credits_url, data=data)
+        return response.status_code == 200, number_of_changes
