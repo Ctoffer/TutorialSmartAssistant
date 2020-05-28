@@ -22,6 +22,18 @@ class MuesliSession:
     def online(self):
         return self.get_online_state() == 'online'
 
+    def get(self, url, parse=True):
+        result = self._session.get(url)
+        if result.status_code == 200 and parse:
+            result = BeautifulSoup(result.content, "html.parser")
+        else:
+            if self.online:
+                raise ConnectionError(f"Http GET failed with {result.status_code}.")
+            else:
+                raise ConnectionRefusedError(f"MÜSLI is not online, please login first.")
+
+        return result
+
     def get_online_state(self):
         result = 'offline'
         if self._session is not None:
@@ -57,14 +69,13 @@ class MuesliSession:
         self.logout()
 
     def logout(self):
-        self._session.get(self._logout_url)
+        self.get(self._logout_url, parse=False)
         self._logout_url = None
         self._session.close()
         self._session = None
 
     def get_my_tutorials(self, lecture_id, my_name):
-        response = self._session.get(f'https://muesli.mathi.uni-heidelberg.de/lecture/view/{lecture_id}')
-        soup = BeautifulSoup(response.content, "html.parser")
+        soup = self.get(f'https://muesli.mathi.uni-heidelberg.de/lecture/view/{lecture_id}')
         lecture_name = soup.find('h2').text
         table = soup.find('table')
         result = list()
@@ -103,8 +114,7 @@ class MuesliSession:
         return int(some_id)
 
     def _get_name_of_tutor(self, lecture_id, tutorial_id):
-        response = self._session.get(f'https://muesli.mathi.uni-heidelberg.de/lecture/view/{lecture_id}')
-        soup = BeautifulSoup(response.content, "html.parser")
+        soup = self.get(f'https://muesli.mathi.uni-heidelberg.de/lecture/view/{lecture_id}')
         table = soup.find('table')
         result = None
 
@@ -117,43 +127,31 @@ class MuesliSession:
         return result
 
     def _add_details_to_tutorial(self, tutorial):
-        response = self._session.get(f'https://muesli.mathi.uni-heidelberg.de/tutorial/view/{tutorial.tutorial_id}')
-
-        if response.status_code == 200:
-            soup = BeautifulSoup(response.content, "html.parser")
-            tutorial.tutor_mail = soup.find('p').find('a')['href'][len("mailto:"):]
-        elif response.status_code == 403:
-            # TODO do sth usefull here with a custom logger...
-            pass
+        soup = self.get(f'https://muesli.mathi.uni-heidelberg.de/tutorial/view/{tutorial.tutorial_id}')
+        tutorial.tutor_mail = soup.find('p').find('a')['href'][len("mailto:"):]
 
     def get_all_students_of_tutorial(self, tutorial_id):
-        response = self._session.get(f'https://muesli.mathi.uni-heidelberg.de/tutorial/view/{tutorial_id}')
+        soup = self.get(f'https://muesli.mathi.uni-heidelberg.de/tutorial/view/{tutorial_id}')
         result = list()
 
-        if response.status_code == 200:
-            soup = BeautifulSoup(response.content, "html.parser")
-            table = soup.find('table').find('tbody')
-            for row in table.find_all('tr'):
-                cols = row.find_all('td')
-                mail = cols[0].find('a')['href'][len("mailto:"):]
-                name = cols[0].text
-                subject = cols[1].text
-                muesli_student_id = MuesliSession._extract_id(cols[2].find('form'))
-                student = Student(tutorial_id=tutorial_id,
-                                  muesli_student_id=muesli_student_id,
-                                  muesli_name=name,
-                                  muesli_mail=mail,
-                                  subject=subject)
-                result.append(student)
-        elif response.status_code == 403:
-            # TODO do sth usefull here with a custom logger...
-            pass
+        table = soup.find('table').find('tbody')
+        for row in table.find_all('tr'):
+            cols = row.find_all('td')
+            mail = cols[0].find('a')['href'][len("mailto:"):]
+            name = cols[0].text
+            subject = cols[1].text
+            muesli_student_id = MuesliSession._extract_id(cols[2].find('form'))
+            student = Student(tutorial_id=tutorial_id,
+                              muesli_student_id=muesli_student_id,
+                              muesli_name=name,
+                              muesli_mail=mail,
+                              subject=subject)
+            result.append(student)
 
         return result
 
     def get_all_tutorials_of_lecture(self, lecture_id, except_ids=tuple()):
-        response = self._session.get(f'https://muesli.mathi.uni-heidelberg.de/lecture/view/{lecture_id}')
-        soup = BeautifulSoup(response.content, "html.parser")
+        soup = self.get(f'https://muesli.mathi.uni-heidelberg.de/lecture/view/{lecture_id}')
         lecture_name = soup.find('h2').text
         table = soup.find('table')
         result = list()
@@ -180,21 +178,17 @@ class MuesliSession:
         return result
 
     def get_tutor_names(self, lecture_id):
-        response = self._session.get(f'https://muesli.mathi.uni-heidelberg.de/lecture/view/{lecture_id}')
-        soup = BeautifulSoup(response.content, "html.parser")
+        soup = self.get(f'https://muesli.mathi.uni-heidelberg.de/lecture/view/{lecture_id}')
         table = soup.find('table')
 
         return {row.find_all('td')[3].text.strip() for row in table.find_all('tr') if len(row.find_all('td')) > 0}
 
     def get_exercise_id(self, tutorial_id, exercise_prefix, exercise_number):
-        response = self._session.get(f'https://muesli.mathi.uni-heidelberg.de/tutorial/view/{tutorial_id}')
-        soup = BeautifulSoup(response.content, "html.parser")
+        soup = self.get(f'https://muesli.mathi.uni-heidelberg.de/tutorial/view/{tutorial_id}')
         return soup.find('a', text=f"{exercise_prefix}{exercise_number}")['href'].split("/")[-2]
 
     def get_max_credits_of(self, tutorial_id, exercise_id):
-        response = self._session.get(
-            f"https://muesli.mathi.uni-heidelberg.de/exam/statistics/{exercise_id}/{tutorial_id}")
-        soup = BeautifulSoup(response.content, "html.parser")
+        soup = self.get(f"https://muesli.mathi.uni-heidelberg.de/exam/statistics/{exercise_id}/{tutorial_id}")
         columns = soup.find('table').find_all('tr')[-1].find_all('td')[1:-1]
         max_credits = [float(column.text) for column in columns]
         return max_credits
@@ -209,8 +203,7 @@ class MuesliSession:
         tutorial_id = student.tutorial_id
         present_url = self._get_presented_url(present_name, tutorial_id)
 
-        response = self._session.get(present_url)
-        soup = BeautifulSoup(response.content, "html.parser")
+        soup = self.get(present_url)
         table = soup.find("table", attrs={'class': 'colored'})
         table_row = table.find('tr', attrs={'id': f'row-{student.muesli_student_id}'})
         data = dict()
@@ -237,8 +230,7 @@ class MuesliSession:
         if tutorial_id in self._present_urls:
             present_url = self._present_urls[tutorial_id]
         else:
-            response = self._session.get(f'https://muesli.mathi.uni-heidelberg.de/tutorial/view/{tutorial_id}')
-            soup = BeautifulSoup(response.content, "html.parser")
+            soup = self.get(f'https://muesli.mathi.uni-heidelberg.de/tutorial/view/{tutorial_id}')
             present_id = soup.find('a', text=f"{present_name}")['href'].split("/")[-2]
             present_url = f"https://muesli.mathi.uni-heidelberg.de/exam/enter_points/{present_id}/{tutorial_id}"
             self._present_urls[tutorial_id] = present_url
@@ -247,8 +239,7 @@ class MuesliSession:
 
     def get_presented_table(self, present_name, tutorial_id):
         present_url = self._get_presented_url(present_name, tutorial_id)
-        response = self._session.get(present_url)
-        soup = BeautifulSoup(response.content, "html.parser")
+        soup = self.get(present_url)
         table = soup.find("table", attrs={'class': 'colored'})
         data = dict()
         rows = table.find_all('tr')
@@ -272,8 +263,7 @@ class MuesliSession:
     def upload_credits(self, tutorial_id, exercise_id, credit_data):
         credits_url = f"https://muesli.mathi.uni-heidelberg.de/exam/enter_points/{exercise_id}/{tutorial_id}"
 
-        response = self._session.get(credits_url)
-        soup = BeautifulSoup(response.content, "html.parser")
+        soup = self.get(credits_url)
         table = soup.find("table", attrs={'class': 'colored'})
         rows = table.find_all('tr', id=re.compile(r'row-\d+'))
         rows = {row['id']: row for row in rows}
