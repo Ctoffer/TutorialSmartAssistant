@@ -7,7 +7,8 @@ from util.console import string_table, align_vertical
 
 
 class FeedbackPolisher:
-    def __init__(self, storage, path):
+    def __init__(self, storage, path, printer):
+        self.printer = printer
         self._storage = storage
         self._task_prefix = storage.muesli_data.feedback.task_prefix
         self._file_name = f"{self._storage.muesli_data.feedback.file_name}.txt"
@@ -111,6 +112,8 @@ class FeedbackPolisher:
 
             if len(possible_students) == 1:
                 students.append(possible_students[0])
+            elif len(possible_students) == 0:
+                self.printer.warning(f"No student found with name '{student_name}'. [IGNORE]")
             else:
                 location = '(feedback.py: FeedbackPolisher._find_students)'
                 message = f"Did not expect {len(possible_students)} possible students for '{student_name}'. {location}"

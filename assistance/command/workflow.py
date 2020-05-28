@@ -419,7 +419,11 @@ class WorkflowConsolidate:
             self.printer.inform()
             self.printer.inform(f"Working in {directory}")
             self.printer.inform("Polishing feedback ... ", end='')
-            polisher = FeedbackPolisher(self._storage, p_join(working_folder, directory))
+            polisher = FeedbackPolisher(
+                self._storage,
+                p_join(working_folder, directory),
+                self.printer
+            )
             self.printer.confirm("[Ok]")
             self.printer.inform("Saving meta data   ... ", end='')
             polisher.save_meta_to_folder(p_join(finished_folder, directory))
