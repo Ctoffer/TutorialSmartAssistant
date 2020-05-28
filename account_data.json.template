@@ -17,8 +17,8 @@
           "port": "<imap inbox port e.g. 993 in case of stud address"
       },
       "outgoing":{
-        "host": null,
-        "port": null
+        "host": "<smtp outbox host e.g. mail.urz.uni-heidelberg.de in case of stud address>",
+        "port": "<smtp outbox host e.g. 587 in case of stud address>"
       }
     }
   }

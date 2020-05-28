@@ -6,6 +6,8 @@ from email.mime.text import MIMEText
 from os.path import basename
 from smtplib import SMTP
 
+from _socket import gaierror
+
 
 class EMailSender:
     def __init__(self, mail_account, my_name):
@@ -20,10 +22,18 @@ class EMailSender:
         self._smtp_server = None
 
     def __enter__(self):
-        self._smtp_server = SMTP(self._host, self._smtp_server)
+        try:
+            self._smtp_server = SMTP(self._host, self._port)
+        except gaierror:
+            raise ConnectionRefusedError(f"Host '{self._host}:{self._port}' was not found.")
+
         self._smtp_server.starttls()
         # self._smtp_server.set_debuglevel(1)
-        self._smtp_server.login(self._email_user, self._email_password)
+
+        code, resp = self._smtp_server.login(self._email_user, self._email_password)
+        if code not in (235, 503):
+            raise ConnectionError("Could not log in to SMTP mail server. Please check account_data.json")
+
         return self
 
     def send_feedback(self, students, message, feedback_path, exercise_prefix, exercise_number, debug=False):
