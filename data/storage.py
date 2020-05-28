@@ -382,6 +382,10 @@ class InteractiveDataStorage:
         return self.account_data.muesli
 
     @property
+    def email_account(self):
+        return self.account_data.mail
+
+    @property
     def muesli_data(self):
         return self.config.muesli
 

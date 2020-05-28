@@ -8,6 +8,7 @@ from os.path import join as p_join
 from types import SimpleNamespace
 
 from assistance.command.info import select_student_by_name
+from mail.mail_out import EMailSender
 from util.console import single_choice
 from util.feedback import FeedbackPolisher
 
@@ -492,4 +493,98 @@ class WorkflowUpload:
 
 
 class WorkflowSendMail:
-    pass
+    def __init__(self, printer, storage):
+        self.printer = printer
+        self._storage = storage
+
+        self._name = "workflow.send_feedback"
+        self._aliases = ("w.send",)
+        self._min_arg_count = 1
+        self._max_arg_count = 2
+
+    @property
+    def name(self):
+        return self._name
+
+    @property
+    def aliases(self):
+        return self._aliases
+
+    @property
+    def min_arg_count(self):
+        return self._min_arg_count
+
+    @property
+    def max_arg_count(self):
+        return self._max_arg_count
+
+    @property
+    def help(self):
+        return "No help available."
+
+    def _parse_arguments(self, args):
+        if len(args) == 1:
+            exercise_number = int(args[0])
+            debug = False
+        else:
+            if args[0].lower() == '--debug':
+                debug = True
+                exercise_number = int(args[1])
+            else:
+                exercise_number = int(args[0])
+                debug = args[1].lower() == '--debug'
+
+                if not debug:
+                    raise ValueError(f'Unexpected flag {args[1]}')
+
+        return exercise_number, debug
+
+    def __call__(self, *args):
+        exercise_number, debug = self._parse_arguments(args)
+        if debug:
+            self.printer.confirm("Running in debug mode.")
+
+        finished_folder = self._storage.get_finished_folder(exercise_number)
+        feedback_file_name = f"{self._storage.muesli_data.feedback.file_name}.txt"
+        meta_file_name = "meta.json"
+
+        with EMailSender(self._storage.email_account, self._storage.my_name) as sender:
+            for directory in os.listdir(finished_folder):
+                students = list()
+                with open(p_join(finished_folder, directory, meta_file_name), 'r', encoding="utf-8") as fp:
+                    meta = SimpleNamespace(**j_load(fp))
+
+                    for muesli_id in meta.muesli_ids:
+                        try:
+                            student = self._storage.get_student_by_muesli_id(muesli_id)
+                            students.append(student)
+                        except ValueError:
+                            self.printer.error(f"Did not find student with id {muesli_id}, maybe he left the tutorial?")
+
+                    feedback_path = p_join(finished_folder, directory, feedback_file_name)
+
+                    message = list()
+                    message.append("Dieses Feedback ist für:")
+                    for student in students:
+                        message.append(f"• {student.muesli_name} ({student.muesli_mail})")
+                    message.append("")
+                    message.append("Das Feedback befindet sich im Anhang.")
+                    message.append("")
+                    message.append(f"LG {self._storage.my_name_alias}")
+                    message = "\n".join(message)
+
+                    student_names = ', '.join([student.muesli_name for student in students])
+                    self.printer.inform(f"Sending feedback to {student_names} ... ", end='')
+                    try:
+                        sender.send_feedback(
+                            students,
+                            message,
+                            feedback_path,
+                            self._storage.muesli_data.exercise_prefix,
+                            exercise_number,
+                            debug=debug
+                        )
+                        self.printer.confirm("[Ok]")
+                    except BaseException as e:
+                        self.printer.error(f"[Err] - {e}")
+
