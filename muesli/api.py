@@ -69,7 +69,11 @@ class MuesliSession:
         self.logout()
 
     def logout(self):
-        self.get(self._logout_url, parse=False)
+        try:
+            self.get(self._logout_url, parse=False)
+        except ConnectionRefusedError:
+            # already logged out
+            pass
         self._logout_url = None
         self._session.close()
         self._session = None
