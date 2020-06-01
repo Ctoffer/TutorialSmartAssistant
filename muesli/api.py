@@ -279,7 +279,10 @@ class MuesliSession:
                 try:
                     data[column['name']] = float(column['value'])
                 except KeyError:
-                    data[column['name']] = credit_data.get(int(row_id[4:]), dict()).get(idx, None)
+                    credit = credit_data.get(int(row_id[4:]))
+                    if credit is not None:
+                        credit = credit[idx]
+                    data[column['name']] = credit
                     if data[column['name']] is not None:
                         number_of_changes += 1
 

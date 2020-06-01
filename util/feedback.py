@@ -100,7 +100,7 @@ class FeedbackPolisher:
         students = list()
 
         for student_name in student_names_raw:
-            parts = camel_case_pattern.findall(student_name)
+            parts = camel_case_pattern.findall(student_name[0].upper() + student_name[1:])
             if len(parts) > 0:
                 student_name = ("-".join(parts))
 
