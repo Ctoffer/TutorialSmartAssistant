@@ -404,8 +404,10 @@ class InteractiveDataStorage:
     @property
     def my_students(self):
         return [student for student in self.all_students
-                if student.tutorial_id in self.my_tutorial_ids
-                or student.muesli_student_id in self.imported_students]
+                if (student.tutorial_id in self.my_tutorial_ids
+                    and student.muesli_student_id not in self.exported_students)
+                or student.muesli_student_id in self.imported_students
+                ]
 
     @property
     def other_students(self):

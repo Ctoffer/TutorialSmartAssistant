@@ -199,6 +199,11 @@ class WorkflowUnzipCommand:
         students = list()
         needed_manual_help = False
         for student_name in student_names:
+            if any(char.isdigit() for char in student_name):
+                if self.printer.ask(f"Is '{student_name}' really a student name? (y/n)?") != 'y':
+                    self.printer.inform("Skip")
+                    continue
+
             student = select_student_by_name(student_name, self._storage, self.printer, students.append, mode='my')
             if student is None:
                 self.printer.error(f"Some error happened processing '{file_name}'")
@@ -225,7 +230,7 @@ class WorkflowUnzipCommand:
                 return s.muesli_name
 
         for student_name in sorted([to_name(student) for student in students]):
-            name_parts = [_ for _ in student_name.split() if len(_) > 0]
+            name_parts = [_ for _ in student_name.split() if len(_) > 0 and '.' not in _]
             student_names.append(f'{name_parts[0].replace("-", "")}-{name_parts[-1].replace("-", "")}')
 
         if len(student_names) < 2:
