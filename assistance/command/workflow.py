@@ -6,8 +6,10 @@ from json import dump as json_save
 from json import load as j_load
 from os.path import join as p_join
 from types import SimpleNamespace
+from zipfile import BadZipFile
 
 from assistance.command.info import select_student_by_name
+from data.data import Student
 from mail.mail_out import EMailSender
 from util.console import single_choice
 from util.feedback import FeedbackPolisher
@@ -92,7 +94,7 @@ class WorkflowUnzipCommand:
             preprocessed_folder = self._storage.get_preprocessed_folder(exercise_number)
 
             for file in os.listdir(raw_folder):
-                if not file.endswith(".json"):
+                if file.endswith((".zip", ".tar.gz", ".tar", ".7z")):
                     if file.endswith(".tar.gz"):
                         extension = ".tar.gz"
                         file_name = file[:len(extension)]
@@ -116,7 +118,29 @@ class WorkflowUnzipCommand:
                                 self.printer.warning("- " + problem)
                             self.printer.outdent()
 
-                        shutil.unpack_archive(source_path, target_path)
+                        try:
+                            shutil.unpack_archive(source_path, target_path)
+                        except BadZipFile as e:
+                            self.printer.warning("")
+                            self.printer.warning(f"Detected bad zip file: {e}")
+                            self.printer.warning(f"Trying different archive types ...")
+                            with self.printer:
+                                problem = None
+                                for type in ("7z", "tar", "gztar", "bztar", "xztar"):
+                                    try:
+                                        shutil.unpack_archive(source_path, target_path, format=type)
+                                        problem = f"Wrong file extension provided - this file was actually a {type}!"
+                                        break
+                                    except:
+                                        self.printer.warning(f"... {type} failed!")
+
+                            if problem is None:
+                                self.printer.error(f"Fatal error: {file} could not be unpacked!")
+                                self.printer.error("[ERR]")
+                                continue
+                            else:
+                                problems.append(problem)
+
                         self.printer.confirm("[OK]")
 
                         with open(os.path.join(target_path, "submission_meta.json"), 'w', encoding='utf-8') as fp:
@@ -275,9 +299,13 @@ class WorkflowUnzipCommand:
             else:
                 while student is None:
                     self.printer.warning(f"Did not find a student with name '{name}'.")
-                    self.printer.inform("Please try again.")
+                    self.printer.inform("Please try again or type 'cancel' to skip this name.")
                     student = self._select_student()
-                student_names.append(student)
+                    if student == 'cancel':
+                        break
+
+                if student != 'cancel':
+                    student_names.append(student)
 
         result = []
         for student_name in sorted(student_names):
@@ -298,8 +326,10 @@ class WorkflowUnzipCommand:
         if name is None:
             name = self.printer.input(">: ")
 
-        if len(name) == 0:
-            result = None
+        if name is 'cancel':
+            result = 'cancel'
+        elif len(name) == 0:
+            result = 'cancel'
         else:
             possible_students = self._storage.get_students_by_name(name, mode=mode)
             if len(possible_students) == 1:
@@ -311,9 +341,12 @@ class WorkflowUnzipCommand:
 
             else:
                 index = single_choice("Please select correct student", possible_students, self.printer)
-                result = possible_students[index]
+                if index is None:
+                    result = None
+                else:
+                    result = possible_students[index]
 
-        if return_name and result is not None:
+        if return_name and type(result) is Student:
             return result.muesli_name
         else:
             return result
